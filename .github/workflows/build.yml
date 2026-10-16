@@ -60,5 +60,6 @@ jobs:
             if git merge-base --is-ancestor "refs/tags/$T" HEAD 2>/dev/null; then echo "$T already released"; exit 0; fi
             gh release delete "$T" --cleanup-tag -y
           fi
-          gh release create "$T" /tmp/out/*.fwr /tmp/out/SHA256SUMS --target "$GITHUB_SHA" \
+          case "$T" in *-rc*) PRE=--prerelease;; *) PRE=;; esac   # -rc tags: test builds
+          gh release create "$T" /tmp/out/*.fwr /tmp/out/SHA256SUMS /tmp/out/summary.txt --target "$GITHUB_SHA" $PRE \
             --title "Wasel $T" --notes-file RELEASE_NOTES.md
