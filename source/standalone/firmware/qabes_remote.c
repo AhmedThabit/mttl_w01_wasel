@@ -26,5 +26,6 @@ int qabes_open(uint8_t *frame,size_t size,const uint8_t key[32],unsigned directi
 int qabes_command(const uint8_t *p,size_t n,uint8_t *channel,uint8_t *on){
     if(n==3&&p[0]==QABES_OP_CONTROL&&p[1]<=4&&p[2]<=1){*channel=p[1];*on=p[2];return 1;}
     if(n==1&&p[0]==QABES_OP_REFRESH)return 2;
+    if(n==1&&p[0]==QABES_OP_FIND){*channel=5;*on=1;return 3;}
     return 0;
 }

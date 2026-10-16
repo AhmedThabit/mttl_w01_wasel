@@ -5,7 +5,7 @@
  * nonce = direction(1: up, 2: down) | 0 0 0 | stamp (u64 LE, ms since epoch, strictly
  * increasing per direction). AAD = the 13 header bytes. The key is the 64-hex-char MQTT
  * password, which is never sent to the broker in this mode.
- * Down (app -> strip, topic <base>/d): [1, channel 0..3 | 4 all, on] or [2] (send status).
+ * Down (app -> strip, topic <base>/d): [1, channel 0..3 | 4 all, on], [2] (send status) or [3] (blink to find).
  * Up (strip -> app, topic <base>/u, retained): [0x80, uptime ms u32 LE, device JSON]. */
 #include <stddef.h>
 #include <stdint.h>
@@ -16,6 +16,7 @@
 #define QABES_MAX_SKEW_MS 300000u
 #define QABES_OP_CONTROL 1
 #define QABES_OP_REFRESH 2
+#define QABES_OP_FIND 3
 #define QABES_OP_STATUS 0x80
 /* 1 when [hex] is exactly 64 hex digits; writes the 32-byte key. */
 int qabes_key(const char *hex,uint8_t key[32]);
@@ -26,6 +27,6 @@ size_t qabes_seal(uint8_t *frame,size_t plain,const uint8_t key[32],unsigned dir
  * when [time_valid], stamps more than QABES_MAX_SKEW_MS away from now; without a valid
  * clock nothing is accepted. On success *plain points into frame. */
 int qabes_open(uint8_t *frame,size_t size,const uint8_t key[32],unsigned direction,uint64_t now_ms,int time_valid,uint64_t *last,uint8_t **plain,size_t *plain_size);
-/* Parses a down command. 1 control (channel/on set), 2 refresh, 0 invalid. */
+/* Parses a down command. 1 control (channel/on set), 2 refresh, 3 find, 0 invalid. */
 int qabes_command(const uint8_t *plain,size_t size,uint8_t *channel,uint8_t *on);
 #endif

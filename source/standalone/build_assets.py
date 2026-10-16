@@ -76,8 +76,28 @@ messages={lang:{key:value for key,value in values.items() if key not in preview_
 used='\n'.join(data.decode('utf-8') for path,kind,data in sources if path!='/i18n.js')
 messages={lang:{key:value for key,value in values.items() if any(quote+key+quote in used for quote in ('"',"'")) or key.startswith('netState')}
           for lang,values in messages.items()}
-compact='globalThis.MttlI18n={messages:'+json.dumps(messages,ensure_ascii=False,separators=(',',':'))+',text:(language,key,args={})=>{const value=MttlI18n.messages[language==="en"?"en":"ko"][key];if(value===undefined)throw Error("Missing translation: "+key);return value.replace(/\\{(\\w+)\\}/g,(_,name)=>String(args[name]??""));}};'
+# Wasel: English-only device UI. Korean costs image RAM (the image runs from SRAM) that the
+# LED features need; the Korean preview files in ui/ are unchanged. WASEL_KOREAN=1 keeps it.
+import os
+ENGLISH_ONLY=os.environ.get('WASEL_KOREAN')!='1'
+HANGUL=re.compile('[\uac00-\ud7a3\u3131-\u318e]')
+if ENGLISH_ONLY:
+    messages={'en':messages['en']}
+    def english_js(text):
+        text=re.sub(r"(?<![.\w])language(\(\))?\s*===\s*(['\"])en\2",'!0',text)
+        def blank(m):return "''" if HANGUL.search(m[0]) else m[0]
+        return re.sub(r"'(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\"|`(?:[^`\\]|\\.)*`",blank,text)
+    def english_html(text):
+        en=messages['en']
+        text=re.sub(r'(<([a-z0-9]+)[^>]*data-i18n="([A-Za-z0-9]+)"[^>]*>)([^<]*)',lambda m:m[1]+(en.get(m[3],'') if HANGUL.search(m[4]) else m[4]),text)
+        text=re.sub(r'>([^<]*)<',lambda m:'><' if HANGUL.search(m[1]) else m[0],text)
+        text=re.sub(r'([a-z-]+)="([^"]*)"',lambda m:m[1]+'=""' if HANGUL.search(m[2]) else m[0],text)
+        text=text.replace('lang="ko"','lang="en"')
+        return text.replace('</style>','#language{display:none}</style>',1)
+    sources=[(path,kind,english_html(data.decode('utf-8')).encode() if path=='/' else english_js(data.decode('utf-8')).encode() if path.endswith('.js') and path!='/i18n.js' else data) for path,kind,data in sources]
+compact='globalThis.MttlI18n={messages:'+json.dumps(messages,ensure_ascii=False,separators=(',',':'))+',text:(language,key,args={})=>{const value=MttlI18n.messages['+('"en"' if ENGLISH_ONLY else 'language==="en"?"en":"ko"')+'][key];if(value===undefined)throw Error("Missing translation: "+key);return value.replace(/\\{(\\w+)\\}/g,(_,name)=>String(args[name]??""));}};'
 sources=[(path,kind,compact.encode() if path=='/i18n.js' else data) for path,kind,data in sources]
+if ENGLISH_ONLY:assert not any(HANGUL.search(data.decode('utf-8')) for path,kind,data in sources),'Korean left in device assets'
 lines=['/* Generated gzip UI assets. Do not edit by hand. */','#include <stddef.h>',
        'typedef struct { const char *path,*type; const unsigned char *data; size_t size; } mttl_asset;']
 meta=[]

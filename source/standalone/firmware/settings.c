@@ -39,7 +39,7 @@ void mttl_settings_default(mttl_settings *s){
     mttl_schedule_default(&s->schedule);
 }
 int mttl_settings_valid(const mttl_settings *s){
-    size_t i,n,k;if(!s||s->language>1||s->mqtt_enabled>1||s->button_lock>15||!s->port||s->energy_valid>15||!mttl_protection_valid(&s->protection)||!mttl_schedule_valid(&s->schedule))return 0;
+    size_t i,n,k;if(!s||s->language>1||s->mqtt_enabled>1||s->button_lock>15||!s->port||s->energy_valid>15||s->leds>MTTL_LED_ALL||s->night[0]>1439||s->night[1]>1439||!mttl_protection_valid(&s->protection)||!mttl_schedule_valid(&s->schedule))return 0;
     for(i=0;i<4;i++){if(s->energy_raw[i]>0xffffffu||s->energy_wh[i]>0x7fffffffu||s->timer_minutes[i]>1440)return 0;
       if(s->timer_minutes[i]){unsigned r;for(r=0;r<8;r++)if((s->schedule.rules[r].mode&127)&&(s->schedule.rules[r].channel==i||s->schedule.rules[r].channel==4))return 0;}}
     if(!utf8(s->device,65,1))return 0;for(i=0;i<4;i++)if(!utf8(s->channel[i],65,1))return 0;
@@ -57,31 +57,33 @@ static int field(uint8_t *out,size_t cap,size_t *used,const char *s,size_t bound
     out[(*used)++]=(uint8_t)n;for(i=0;i<n;i++)out[(*used)++]=(uint8_t)s[i];return 1;
 }
 size_t mttl_settings_pack(const mttl_settings *s,uint8_t *out,size_t cap){
-    size_t n=5,i,needed=82;if(!out||!mttl_settings_valid(s))return 0;
+    size_t n=5,i,needed=87;if(!out||!mttl_settings_valid(s))return 0;
     needed+=length(s->device,65);for(i=0;i<4;i++)needed+=length(s->channel[i],65);
     needed+=length(s->ssid,33)+length(s->wifi_password,65)+length(s->broker,254)+length(s->mqtt_user,65)+length(s->mqtt_password,65)+length(s->topic,65);
     if(cap<needed)return 0; /* No partial credential output on short buffer. */
-    out[0]=7;out[1]=s->language;out[2]=s->mqtt_enabled;out[3]=(uint8_t)s->port;out[4]=(uint8_t)(s->port>>8);
+    out[0]=MTTL_SETTINGS_WASEL;out[1]=s->language;out[2]=s->mqtt_enabled;out[3]=(uint8_t)s->port;out[4]=(uint8_t)(s->port>>8);
     if(!field(out,cap,&n,s->device,65))return 0;
     for(i=0;i<4;i++)if(!field(out,cap,&n,s->channel[i],65))return 0;
     if(!field(out,cap,&n,s->ssid,33)||!field(out,cap,&n,s->wifi_password,65)||!field(out,cap,&n,s->broker,254)||!field(out,cap,&n,s->mqtt_user,65)||!field(out,cap,&n,s->mqtt_password,65)||!field(out,cap,&n,s->topic,65))return 0;
     out[n++]=s->protection.enabled;out[n++]=(uint8_t)s->protection.temperature_c;out[n++]=(uint8_t)(s->protection.temperature_c>>8);
     out[n++]=(uint8_t)s->protection.current_ma;out[n++]=(uint8_t)(s->protection.current_ma>>8);
-    out[n++]=(uint8_t)s->protection.power_w;out[n++]=(uint8_t)(s->protection.power_w>>8);mttl_schedule_pack(&s->schedule,out+n);n+=50;out[n++]=s->button_lock;for(i=0;i<4;i++){out[n++]=(uint8_t)s->timer_minutes[i];out[n++]=(uint8_t)(s->timer_minutes[i]>>8);}return n;
+    out[n++]=(uint8_t)s->protection.power_w;out[n++]=(uint8_t)(s->protection.power_w>>8);mttl_schedule_pack(&s->schedule,out+n);n+=50;out[n++]=s->button_lock;for(i=0;i<4;i++){out[n++]=(uint8_t)s->timer_minutes[i];out[n++]=(uint8_t)(s->timer_minutes[i]>>8);}
+    out[n++]=s->leds;for(i=0;i<2;i++){out[n++]=(uint8_t)s->night[i];out[n++]=(uint8_t)(s->night[i]>>8);}return n;
 }
 static int take(const uint8_t *body,size_t size,size_t *used,char *out,size_t cap){
     size_t n,i;if(*used>=size)return 0;n=body[(*used)++];if(n>=cap||n>size-*used)return 0;
     for(i=0;i<n;i++){if(!body[*used])return 0;out[i]=(char)body[(*used)++];}out[n]=0;return 1;
 }
 int mttl_settings_unpack(const uint8_t *body,size_t size,mttl_settings *out){
-    mttl_settings tmp;size_t n=5,i;int result=0;volatile uint8_t *wipe=(volatile uint8_t *)&tmp;if(!body||!out||size<5||size>MTTL_SETTINGS_BODY_MAX||(body[0]!=1&&body[0]!=4&&body[0]!=5&&body[0]!=6&&body[0]!=7))return 0;
+    mttl_settings tmp;size_t n=5,i;int result=0;volatile uint8_t *wipe=(volatile uint8_t *)&tmp;if(!body||!out||size<5||size>MTTL_SETTINGS_BODY_MAX||(body[0]!=1&&body[0]!=4&&body[0]!=5&&body[0]!=6&&body[0]!=7&&body[0]!=MTTL_SETTINGS_WASEL))return 0;
     mttl_settings_default(&tmp);tmp.language=body[1];tmp.mqtt_enabled=body[2];tmp.port=(uint16_t)body[3]|((uint16_t)body[4]<<8);
     if(!take(body,size,&n,tmp.device,65))goto done;for(i=0;i<4;i++)if(!take(body,size,&n,tmp.channel[i],65))goto done;
     if(!take(body,size,&n,tmp.ssid,33)||!take(body,size,&n,tmp.wifi_password,65)||!take(body,size,&n,tmp.broker,254)||!take(body,size,&n,tmp.mqtt_user,65)||!take(body,size,&n,tmp.mqtt_password,65)||!take(body,size,&n,tmp.topic,65))goto done;
-    if(body[0]>=4){if(size-n!=(body[0]==7?66:body[0]==6?58:body[0]==5?57:7))goto done;tmp.protection.enabled=body[n++];tmp.protection.temperature_c=(uint16_t)body[n]|((uint16_t)body[n+1]<<8);n+=2;tmp.protection.current_ma=(uint16_t)body[n]|((uint16_t)body[n+1]<<8);n+=2;tmp.protection.power_w=(uint16_t)body[n]|((uint16_t)body[n+1]<<8);n+=2;}
+    if(body[0]>=4){if(size-n!=(body[0]==MTTL_SETTINGS_WASEL?71:body[0]==7?66:body[0]==6?58:body[0]==5?57:7))goto done;tmp.protection.enabled=body[n++];tmp.protection.temperature_c=(uint16_t)body[n]|((uint16_t)body[n+1]<<8);n+=2;tmp.protection.current_ma=(uint16_t)body[n]|((uint16_t)body[n+1]<<8);n+=2;tmp.protection.power_w=(uint16_t)body[n]|((uint16_t)body[n+1]<<8);n+=2;}
     if(body[0]>=5){if(!mttl_schedule_unpack(body+n,&tmp.schedule))goto done;n+=50;}
     if(body[0]>=6)tmp.button_lock=body[n++];
-    if(body[0]==7)for(i=0;i<4;i++){tmp.timer_minutes[i]=(uint16_t)body[n]|((uint16_t)body[n+1]<<8);n+=2;}
+    if(body[0]>=7)for(i=0;i<4;i++){tmp.timer_minutes[i]=(uint16_t)body[n]|((uint16_t)body[n+1]<<8);n+=2;}
+    if(body[0]==MTTL_SETTINGS_WASEL){tmp.leds=body[n++];for(i=0;i<2;i++){tmp.night[i]=(uint16_t)body[n]|((uint16_t)body[n+1]<<8);n+=2;}}
     if(n!=size||!mttl_settings_valid(&tmp))goto done;
     *out=tmp;result=1;
 done:for(i=0;i<sizeof(tmp);i++)wipe[i]=0;return result;
@@ -100,7 +102,7 @@ size_t mttl_settings_storage_pack(const mttl_settings *s,uint8_t *out,size_t cap
 int mttl_settings_storage_unpack(const uint8_t *body,size_t size,mttl_settings *out){
     mttl_settings tmp;size_t n,i,j;int ok=0;volatile uint8_t *wipe=(volatile uint8_t *)&tmp;
     if(!body||!out||!size)return 0;
-    if(body[0]==1||body[0]==4||body[0]==5||body[0]==6||body[0]==7)return mttl_settings_unpack(body,size,out);
+    if(body[0]==1||body[0]==4||body[0]==5||body[0]==6||body[0]==7||body[0]==MTTL_SETTINGS_WASEL)return mttl_settings_unpack(body,size,out);
     if((body[0]!=2&&body[0]!=3)||size<(body[0]==3?43:41)||size>MTTL_SETTINGS_BODY_MAX)return 0;
     n=(size_t)body[1]|((size_t)body[2]<<8);if(n!=size-(body[0]==3?38:36))return 0;
     if(!mttl_settings_unpack(body+3,n,&tmp))goto done;

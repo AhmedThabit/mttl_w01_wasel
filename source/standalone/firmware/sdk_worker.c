@@ -42,6 +42,8 @@ static mttl_control relay_control;
 static mttl_hardware_port relay_port;
 static volatile uint8_t relay_busy,storage_busy;
 static uint8_t indicator_busy,lock_flash_requested,lock_flash_mask,lock_flash_edges;
+/* Wasel: redraw LEDs after a policy change; blink every channel to find the strip. */
+static volatile uint8_t led_refresh,find_requested;
 static uint32_t lock_flash_at;
 static uint32_t relay_save_attempt_at;
 static uint8_t relay_save_retry;
@@ -91,15 +93,17 @@ static __attribute__((noinline)) void lock_flash_tick(uint32_t now){unsigned mas
  taskENTER_CRITICAL();
  if(storage_busy||energy_barrier_state||occupied||control_pending||relay_port.active||relay_fault||!relay_port.verified){taskEXIT_CRITICAL();return;}
  if(lock_flash_requested){lock_flash_mask|=lock_flash_requested;lock_flash_requested=0;lock_flash_edges=6;lock_flash_at=now-120u;}
+ if(find_requested){find_requested=0;lock_flash_mask=15;lock_flash_edges=40;lock_flash_at=now-120u;}
+ if(led_refresh){led_refresh=0;if(!lock_flash_mask){lock_flash_mask=15;lock_flash_edges=0;lock_flash_at=now-120u;}}
  if(!lock_flash_mask||(uint32_t)(now-lock_flash_at)<120u){taskEXIT_CRITICAL();return;}
  lock_flash_at=now;mask=lock_flash_edges?lock_flash_mask:0;lit=!(lock_flash_edges&1);if(lock_flash_edges)--lock_flash_edges;else lock_flash_mask=0;
  indicator_busy=1;taskEXIT_CRITICAL();
- ok=mttl_hardware_lock_flash(&relay_port,(uint8_t)mask,lit);
+ mttl_led_raw=mask!=0;ok=mttl_hardware_lock_flash(&relay_port,(uint8_t)mask,lit);mttl_led_raw=0;
  taskENTER_CRITICAL();indicator_busy=0;if(!ok){relay_fault=1;lock_flash_mask=lock_flash_requested=0;}taskEXIT_CRITICAL();
 }
 static void relay_task(void *unused){mttl_output out={&relay_port,mttl_hardware_begin,mttl_hardware_end};(void)unused;
  for(;;){unsigned ch,on,mask;uint32_t start;
-  xSemaphoreTake(relay_wake,(lock_flash_mask||lock_flash_requested)?(120/portTICK_RATE_MS+1):portMAX_DELAY);
+  xSemaphoreTake(relay_wake,(lock_flash_mask||lock_flash_requested||find_requested||led_refresh)?(120/portTICK_RATE_MS+1):portMAX_DELAY);
   for(;;){
   taskENTER_CRITICAL();
   if(!control_pending){taskEXIT_CRITICAL();break;}
@@ -145,7 +149,7 @@ static size_t device_size;
 /* Fully populated by config_reserve before config_ready; CPU-only staging. */
 static mttl_settings pending_config __attribute__((section(".mttl.cache")));
 static uint8_t config_ready;
-static uint8_t config_keep_password;
+static uint8_t config_keep_password,config_keep_leds;
 static uint8_t ready,ap_ready,stop_phase;
 static mttl_worker_status published;
 static uint32_t rssi_polled_at;
@@ -155,7 +159,18 @@ static int control_enqueue(unsigned channel,unsigned on,int local){int ok=0;unsi
 /* Publish the new progress timestamp atomically with busy, before waking
  * the relay task or allowing watchdog evaluation of this command. */
 watchdog_relay_at=control_queue[tail].at;relay_busy=1;if(channel==4)relay_desired=(relay_desired&~mask)|(on?mask:0);else if(on)relay_desired|=1u<<channel;else relay_desired&=~(1u<<channel);ok=1;}taskEXIT_CRITICAL();if(ok)xSemaphoreGive(relay_wake);return ok;}
-int mttl_sdk_control_request(unsigned channel,unsigned on){return control_enqueue(channel,on,0);}
+int mttl_sdk_control_request(unsigned channel,unsigned on){
+ if(channel==5){if(!relay_wake||!relay_port.verified)return 0;find_requested=1;xSemaphoreGive(relay_wake);return 1;} /* Wasel: find the strip */
+ return control_enqueue(channel,on,0);}
+/* Wasel: LED policy from the settings and the strip's local time; redraw on change. */
+static __attribute__((noinline)) void led_service(int valid,uint64_t unix_ms){
+ uint8_t f=device.settings.leds,p=(f&MTTL_LED_HIDE_OFF)?2:0;
+ if(f&MTTL_LED_NIGHT)p|=1;
+ else if((f&MTTL_LED_NIGHT_WINDOW)&&valid){unsigned a=device.settings.night[0],b=device.settings.night[1];
+  int32_t m=(int32_t)((unix_ms/60000u)%1440u)+device.settings.schedule.timezone;m=(m%1440+1440)%1440;
+  if(a<b?((unsigned)m>=a&&(unsigned)m<b):(a>b&&((unsigned)m>=a||(unsigned)m<b)))p|=1;}
+ if(p!=mttl_led_policy){mttl_led_policy=p;led_refresh=1;if(relay_wake)xSemaphoreGive(relay_wake);}
+}
 static __attribute__((noinline)) void timer_service(uint32_t now){
  unsigned expired,i;taskENTER_CRITICAL();expired=mttl_timer_tick(&device.timers,device.settings.timer_minutes,relay_known,relay_on,now);
  /* Do not flood the four-slot queue while an OFF is already in flight.
@@ -167,6 +182,10 @@ static __attribute__((noinline)) void timer_service(uint32_t now){
  * still finishes/release safely. No persistent lock or automatic re-enable. */
 static void protection_off(void){taskENTER_CRITICAL();if(relay_wake&&device.hardware.verified&&!relay_fault){control_head=0;control_pending=1;control_queue[0].channel=4;control_queue[0].on=0;control_queue[0].mask=15;control_queue[0].at=(uint32_t)xTaskGetTickCount()*portTICK_RATE_MS;watchdog_relay_at=control_queue[0].at;relay_busy=1;relay_desired=0;}taskEXIT_CRITICAL();if(relay_wake)xSemaphoreGive(relay_wake);}
 void mttl_sdk_button_event(unsigned index,int event){unsigned on;if(index>4||!event)return;
+ /* Wasel: with every button locked the 10 s setup hold is refused too (flash instead),
+  * except during the first minute after power-up so Wi-Fi can always be reconfigured. */
+ if(index==0&&event==2&&(device.settings.leds&MTTL_LED_HOLD_LOCK)&&device.settings.button_lock==15&&(uint32_t)xTaskGetTickCount()*portTICK_RATE_MS>60000u){
+  taskENTER_CRITICAL();lock_flash_requested|=15;taskEXIT_CRITICAL();if(relay_wake)xSemaphoreGive(relay_wake);return;}
  if(index==0&&event==2){taskENTER_CRITICAL();if(!energy_barrier_state){provision_requested=1;setup_led_edges=6;setup_led_at=(uint32_t)xTaskGetTickCount()*portTICK_RATE_MS-200u;}taskEXIT_CRITICAL();return;}
  taskENTER_CRITICAL();on=index?!(relay_desired&(1u<<(index-1))):!(relay_desired&(15u&~device.settings.button_lock));
  lock_flash_requested|=device.settings.button_lock&(index?(1u<<(index-1)):15u);
@@ -185,7 +204,7 @@ void mttl_sdk_buttons_poll(void){unsigned i;uint32_t now;if(!buttons_ready)retur
 static __attribute__((noinline)) size_t config_snapshot(char *out,size_t cap){mttl_settings copy;int persistent;size_t n;taskENTER_CRITICAL();copy=device.settings;persistent=device.persistent;taskEXIT_CRITICAL();n=mttl_settings_json(&copy,persistent,out,cap);{volatile uint8_t *p=(volatile uint8_t *)&copy;size_t i;for(i=0;i<sizeof(copy);i++)p[i]=0;}return n;}
 size_t mttl_sdk_device_json(char *out,size_t cap,int settings){size_t n;if(settings)return config_snapshot(out,cap);taskENTER_CRITICAL();n=device_size;if(n&&n<cap){memcpy(out,device_json,n+1);}else n=0;taskEXIT_CRITICAL();return n;}
 int mttl_sdk_settings_persistent(void){return device.persistent!=0;}
-int mttl_sdk_config_reserve(const uint8_t *body,size_t n,int keep_password){int ok=0;mttl_settings candidate;if(!mttl_settings_unpack(body,n,&candidate))return 0;taskENTER_CRITICAL();if((ap_ready||published.state==MTTL_NET_ONLINE)&&!occupied&&!config_occupied&&!energy_barrier_state){pending_config=candidate;config_keep_password=keep_password!=0;config_occupied=1;ok=1;}taskEXIT_CRITICAL();{volatile uint8_t *p=(volatile uint8_t *)&candidate;size_t i;for(i=0;i<sizeof(candidate);i++)p[i]=0;}return ok;}
+int mttl_sdk_config_reserve(const uint8_t *body,size_t n,int keep_password){int ok=0;mttl_settings candidate;if(!mttl_settings_unpack(body,n,&candidate))return 0;taskENTER_CRITICAL();if((ap_ready||published.state==MTTL_NET_ONLINE)&&!occupied&&!config_occupied&&!energy_barrier_state){pending_config=candidate;config_keep_password=keep_password!=0;config_keep_leds=body[0]!=MTTL_SETTINGS_WASEL;config_occupied=1;ok=1;}taskEXIT_CRITICAL();{volatile uint8_t *p=(volatile uint8_t *)&candidate;size_t i;for(i=0;i<sizeof(candidate);i++)p[i]=0;}return ok;}
 void mttl_sdk_config_release(int accepted){taskENTER_CRITICAL();if(config_occupied){if(accepted)config_ready=1;else{memset(&pending_config,0,sizeof(pending_config));config_occupied=0;}}taskEXIT_CRITICAL();}
 static mttl_lifecycle life;
 static uint8_t scan_requested;
@@ -305,6 +324,8 @@ static void worker(void *p){
         if(config_now&&storage_begin()){
             memcpy(pending_config.ssid,device.settings.ssid,33);memcpy(pending_config.wifi_password,device.settings.wifi_password,65);
             if(config_keep_password)memcpy(pending_config.mqtt_password,device.settings.mqtt_password,65);
+            /* Upstream-format saves (e.g. the web page) keep the Wasel LED options. */
+            if(config_keep_leds){pending_config.leds=device.settings.leds;pending_config.night[0]=device.settings.night[0];pending_config.night[1]=device.settings.night[1];}
             mttl_settings_keep_energy(&pending_config,&device.settings);
             /* Flash operations never run with scheduler/interrupts disabled. */
             if(mttl_settings_valid(&pending_config)&&mttl_sdk_settings_save(&pending_config)==1){
@@ -342,6 +363,7 @@ static void worker(void *p){
         }
         mttl_sdk_ntp_tick(&device.ntp,life.network.state==MTTL_NET_ONLINE,clock_ms(0));
         {uint64_t time;unsigned on,mask,i;int valid=mttl_time_now(&device.ntp.time,clock_ms(0),&time);
+         led_service(valid,time);
          mask=mttl_schedule_tick(&schedule_state,&device.settings.schedule,valid,valid?time:0,&on);
          /* At most four commands, admitted atomically; never partly apply a
           * schedule batch when manual work has filled the bounded queue. */

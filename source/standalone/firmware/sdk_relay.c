@@ -40,9 +40,13 @@ static mttl_meter_bus bus={0,line,sense,delay,3};
 /* Dedicated relay owner. Complete release BEFORE returning to its caller.
  * Storage interlock prevents flash operations across coil pulses.
  * 100 ms is a trial OEM-equivalent pulse, not a certified maximum. */
-static int write_output(void *p,const uint8_t *bytes,size_t n){
- uint8_t released[4];unsigned i;int started,ended=0,coil;(void)p;
- if(n!=4)return 0;coil=(bytes[1]&0x30)||(bytes[2]&0x3f);
+volatile uint8_t mttl_led_policy,mttl_led_raw;
+static int write_output(void *p,const uint8_t *logical,size_t n){
+ uint8_t released[4],bytes[4];unsigned i;int started,ended=0,coil;(void)p;
+ if(n!=4)return 0;
+ /* LED bits: byte0 0-5 (ch1-3 on/off pairs), byte1 0-3 (ch4 pair, main on/all-off). */
+ memcpy(bytes,logical,4);
+ if(!mttl_led_raw){if(mttl_led_policy&1){bytes[0]&=0xc0;bytes[1]&=0xf0;}else if(mttl_led_policy&2){bytes[0]&=0xd5;bytes[1]&=0xf5;}}coil=(bytes[1]&0x30)||(bytes[2]&0x3f);
  if(coil&&fault)return 0;
  /* Only elide an identical neutral frame already ACKed by this owner.
   * Never elide a coil start or a release following uncertain output. */

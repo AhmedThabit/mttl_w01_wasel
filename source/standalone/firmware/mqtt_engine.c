@@ -79,7 +79,7 @@ void mttl_mqtt_engine_step(mttl_mqtt_engine *e,const mttl_settings *s,const char
                 if(mttl_parse_publish(e->rx.bytes,e->rx.total,&p)&&p.topic_size==b+2&&!memcmp(p.topic,base,b)&&!memcmp(p.topic+b,"/d",2)&&qabes_key(s->mqtt_password,key)){
                     if(qabes_open((uint8_t *)p.payload,p.payload_size,key,QABES_DOWN,e->unix_ms,e->time_valid,&e->stamp_down,&plain,&plain_size)){
                         op=qabes_command(plain,plain_size,&channel,&on);
-                        if(op==1&&io->command)io->command(io->command_context,channel,on);
+                        if((op==1||op==3)&&io->command)io->command(io->command_context,channel,on); /* 3: find (channel 5) */
                         if(op)e->status_wanted=1;}
                     memset(key,0,sizeof(key));}}
 #else
