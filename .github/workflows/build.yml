@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - uses: actions/setup-node@v4
@@ -54,6 +55,10 @@ jobs:
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
           T=$(tr -d ' \n' < WASEL_RELEASE)
-          if gh release view "$T" >/dev/null 2>&1; then echo "$T already released"; exit 0; fi
+          if gh release view "$T" >/dev/null 2>&1; then
+            # Keep it if its tag is part of main; a tag left behind by rewritten history is replaced.
+            if git merge-base --is-ancestor "refs/tags/$T" HEAD 2>/dev/null; then echo "$T already released"; exit 0; fi
+            gh release delete "$T" --cleanup-tag -y
+          fi
           gh release create "$T" /tmp/out/*.fwr /tmp/out/SHA256SUMS --target "$GITHUB_SHA" \
             --title "Wasel $T" --notes-file RELEASE_NOTES.md
