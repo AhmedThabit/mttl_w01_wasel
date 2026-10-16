@@ -1,6 +1,6 @@
 # MTTL-W01 Standalone Firmware
 
-[한국어](README.md) | English
+[한국어](README_upstream_KO.md) | English | [Wasel](README.md)
 
 Project-authored code is available under the [MIT License](LICENSE). Third-party components retain their existing terms. [License scope](LICENSING.md)
 

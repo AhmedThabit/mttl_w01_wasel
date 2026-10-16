@@ -83,6 +83,9 @@ if args.standalone:
  sources.append(ROOT/'standalone/firmware/mqtt_wire.c')
  for name in ('ha_discovery','mqtt_engine','hardware_port','device_app','sdk_mqtt_socket'):
   sources.append(ROOT/'standalone/firmware'/ (name+'.c'))
+ if os.environ.get('QABES_REMOTE')=='1':
+  common += ['-DQABES_REMOTE=1']
+  sources += [ROOT/'standalone/firmware/qabes_aead_rom.c',ROOT/'standalone/firmware/qabes_remote.c']
 for folder in ['cores/arduino','libraries/WiFi/src','libraries/MQTTClient/src','system/component/common/network/httpd']:
  sources += sorted(p for p in (hw/folder).glob('*') if p.suffix in ['.c','.cpp'] and p.name != 'httpd_tls.c' and not (args.standalone and p.name in ('httpd_core.c','httpd_util.c','httpd_msg.c')))
 logs=[]; objects=[]

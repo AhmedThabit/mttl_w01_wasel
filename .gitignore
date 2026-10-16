@@ -1,0 +1,5 @@
+source/work/
+source/.cache/
+source/.tools/
+source/standalone/results/
+__pycache__/

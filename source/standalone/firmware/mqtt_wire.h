@@ -2,7 +2,12 @@
 #define MTTL_MQTT_WIRE_H
 #include <stddef.h>
 #include <stdint.h>
+#if QABES_REMOTE
+/* Remote mode only receives short encrypted commands; the halved buffer pays for the cipher glue. */
+#define MTTL_MQ_WIRE_CAP 256
+#else
 #define MTTL_MQ_WIRE_CAP 512
+#endif
 size_t mttl_mq_connect_packet(uint8_t *,size_t,const char *client,const char *will_topic,const char *user,const char *password,uint16_t keepalive);
 /* Outgoing PUBLISH up to 1024B; inputs must not alias output. Incoming limit
  * remains 512B, sufficient for bounded commands and broker control frames. */

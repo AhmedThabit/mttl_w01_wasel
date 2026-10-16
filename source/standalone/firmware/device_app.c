@@ -1,7 +1,12 @@
 #include "device_app.h"
 #include <stdio.h>
 #include <string.h>
+#if QABES_REMOTE
+#include "qabes_remote.h"
+static int publish_status(mttl_device_app *,uint32_t);
+#else
 static void publish_sample(mttl_device_app *,const char *,uint32_t);
+#endif
 static int quote(const char *s,char *out,size_t cap){size_t j=0;unsigned char c;if(cap<3)return 0;out[j++]='"';while(*s){c=(unsigned char)*s++;if(c<32)return 0;if(c=='"'||c=='\\'){if(j+2>=cap)return 0;out[j++]='\\';}if(j+2>=cap)return 0;out[j++]=(char)c;}out[j++]='"';out[j]=0;return 1;}
 void mttl_device_init(mttl_device_app *d,uint64_t reference){memset(d,0,sizeof(*d));mttl_settings_default(&d->settings);mttl_control_init(&d->control,100);mttl_hardware_init(&d->hardware);mttl_mqtt_engine_init(&d->mqtt);mttl_ntp_client_init(&d->ntp,reference);}
 int mttl_device_load(mttl_device_app *d,const mttl_settings_io *io,mttl_config_workspace *workspace){int result;if(!workspace)return -1;result=mttl_config_load(io,workspace,&d->settings);if(result>=0){d->persistent=1;++d->revision;}return result;}
@@ -23,11 +28,39 @@ void mttl_device_tick(mttl_device_app *d,const char *id,int network,uint32_t now
     mttl_output output={&d->hardware,mttl_hardware_begin,mttl_hardware_end};
     if(!d->relay_request&&d->hardware.verified&&d->hardware.write)mttl_control_tick(&d->control,&output,now);
     mttl_ntp_link(&d->ntp,network,now);
+#if QABES_REMOTE
+    d->mqtt.time_valid=(uint8_t)mttl_time_now(&d->ntp.time,now,&d->mqtt.unix_ms);
+#endif
     if(io){mttl_mqtt_io bound=*io;bound.command=mttl_device_command;bound.command_context=d;mttl_mqtt_engine_step(&d->mqtt,&d->settings,id,network,d->revision,now,&bound);}
     if(d->mqtt.session.state!=MTTL_MQ_ONLINE||d->mqtt.rediscover){d->mqtt_known=d->mqtt_all=d->mqtt_was_online=0;}
+#if QABES_REMOTE
+    /* Encrypted status: at once on outlet changes, on request (at most every 2 s)
+     * and every 30 s otherwise. Retained, so the app sees the last one right away. */
+    else{unsigned dirty=(d->control.known_mask&~d->mqtt_known)|((d->control.on_mask^d->mqtt_on)&d->control.known_mask);uint32_t age=now-d->publish_at;
+      if(dirty||!d->mqtt_all||(d->mqtt.status_wanted&&age>=2000)||age>=30000){if(publish_status(d,now)){d->publish_at=now;d->mqtt.status_wanted=0;d->mqtt_all=1;d->mqtt_known=d->control.known_mask;d->mqtt_on=d->control.on_mask;}}}
+#else
     else{unsigned dirty=(d->control.known_mask&~d->mqtt_known)|((d->control.on_mask^d->mqtt_on)&d->control.known_mask);
       if(dirty||!d->mqtt_all||(uint32_t)(now-d->publish_at)>=200){publish_sample(d,id,now);d->publish_at=now;}}
+#endif
 }
+#if QABES_REMOTE
+/* Builds PUBLISH <topic>/u (retained) straight into the engine buffer:
+ * 0x31 | length (2 bytes) | topic | frame('Q' nonce [0x80 uptime json] tag). */
+#endif
+#if QABES_REMOTE
+static int publish_status(mttl_device_app *d,uint32_t now){
+    mttl_mqtt_engine *e=&d->mqtt;uint8_t key[32],*t=e->tx,*plain;size_t tl=strlen(d->settings.topic)+2,off=5+tl,cap,n,rem;
+    if(e->session.state!=MTTL_MQ_ONLINE||e->tx_size||!e->time_valid||off+QABES_OVERHEAD+16>sizeof(e->tx)||!qabes_key(d->settings.mqtt_password,key))return 0;
+    plain=t+off+QABES_HEAD;cap=sizeof(e->tx)-off-QABES_OVERHEAD;
+    plain[0]=QABES_OP_STATUS;plain[1]=(uint8_t)now;plain[2]=(uint8_t)(now>>8);plain[3]=(uint8_t)(now>>16);plain[4]=(uint8_t)(now>>24);
+    n=mttl_device_status(d,now,(char *)plain+5,cap-5);
+    if(!n||n>=cap-5){memset(key,0,sizeof(key));return 0;}
+    n=qabes_seal(t+off,n+5,key,QABES_UP,e->unix_ms,&e->stamp_up);memset(key,0,sizeof(key));
+    rem=2+tl+n;t[0]=0x31;t[1]=(uint8_t)(0x80|(rem&127));t[2]=(uint8_t)(rem>>7);t[3]=(uint8_t)(tl>>8);t[4]=(uint8_t)tl;
+    memcpy(t+5,d->settings.topic,tl-2);t[5+tl-2]='/';t[5+tl-1]='u';
+    return mttl_mqtt_engine_queue_built(e,3+rem,now);
+}
+#else
 static void publish_sample(mttl_device_app *d,const char *id,uint32_t now){
     static const char *keys[]={"power","meter","voltage","current"};
     const mttl_sample *value=0;char base[96],topic[128],key[24],payload[24];unsigned index=d->publish_index,metric,ch;int32_t raw;unsigned scale=1000;uint32_t magnitude;
@@ -51,6 +84,7 @@ static void publish_sample(mttl_device_app *d,const char *id,uint32_t now){
     }
     snprintf(topic,sizeof(topic),"%s/%s",base,key);if(mttl_mqtt_engine_publish(&d->mqtt,topic,(const uint8_t *)payload,strlen(payload),index<5,now)&&index<5){if(!index){d->mqtt_all=1;d->mqtt_was_online=d->control.on_mask==15;}else{unsigned bit=1u<<(index-1);d->mqtt_known|=bit;d->mqtt_on=(d->mqtt_on&~bit)|(d->control.on_mask&bit);}}
 }
+#endif
 static void sample(const mttl_sample *s,uint32_t now,char out[16]){int32_t value;if(mttl_sample_read(s,now,MTTL_SENSOR_MAX_AGE_MS,&value))snprintf(out,16,"%ld",(long)value);else strcpy(out,"null");}
 size_t mttl_device_status(const mttl_device_app *d,uint32_t now,char *out,size_t cap){
     char name[132],voltage[16],power[16],meter[16],current[16],temp[16],on[8];size_t used;unsigned i;int n;

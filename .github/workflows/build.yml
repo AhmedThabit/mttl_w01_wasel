@@ -1,0 +1,59 @@
+name: build
+# Builds both Wasel firmware variants from source/ with the same GCC 4.8.3-2014q1 and Ameba1 SDK
+# that MTTL-Builder uses (Linux build of the toolchain). Setting WASEL_RELEASE to a new tag
+# (v<version>-w<n>) on main publishes that release; the tag is created by the release.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Host tests (RFC 8439 vectors, frame rules, MQTT engine flow)
+        run: sh source/standalone/tests/run.sh
+      - name: Toolchain and SDK
+        working-directory: source
+        run: |
+          curl -fsSL -o /tmp/gcc.tar.gz https://downloads.arduino.cc/gcc-arm-none-eabi-4.8.3-2014q1-linux64.tar.gz
+          mkdir -p /tmp/gcc && tar -xzf /tmp/gcc.tar.gz -C /tmp/gcc --strip-components=1
+          for t in /tmp/gcc/bin/arm-none-eabi-*; do ln -sf "$t" "$t.exe"; done   # upstream scripts use Windows names
+          python ci/prepare.py /tmp/fwcache
+          python -m pip install --target .tools/pydeps unicorn==2.1.4 zopfli==0.4.3
+          mkdir -p /tmp/js && (cd /tmp/js && npm install --no-audit --no-fund terser@5.44.0 >/dev/null)
+      - name: Build remote and Home Assistant variants
+        working-directory: source
+        env:
+          MTTL_GCC_DIR: /tmp/gcc
+          MTTL_TERSER_ROOT: /tmp/js/node_modules/terser
+          PYTHONPATH: ${{ github.workspace }}/source/.tools/pydeps
+        run: |
+          set -o pipefail
+          V=$(python -c "import json;print(json.load(open('mttl-source.json'))['version'])")
+          mkdir -p /tmp/out
+          for v in remote ha; do
+            [ $v = remote ] && export QABES_REMOTE=1 || export QABES_REMOTE=0
+            python build.py 2>&1 | tee /tmp/out/build-$v.log
+            r=standalone/results/network-ota-test
+            cp $r/comMTTL-W01_$V.fwr /tmp/out/wasel-$v-$V.fwr
+            python -c "import json;m=json.load(open('$r/manifest.json'));print('$v build',m['build_id'],'static gap',m['static_gap_to_msp_bytes'],'bytes')" | tee -a /tmp/out/summary.txt
+          done
+          (cd /tmp/out && sha256sum *.fwr > SHA256SUMS && cat SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with: { name: wasel-firmware, path: /tmp/out }
+      - name: Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          T=$(tr -d ' \n' < WASEL_RELEASE)
+          if gh release view "$T" >/dev/null 2>&1; then echo "$T already released"; exit 0; fi
+          gh release create "$T" /tmp/out/*.fwr /tmp/out/SHA256SUMS --target "$GITHUB_SHA" \
+            --title "Wasel $T" --notes-file RELEASE_NOTES.md

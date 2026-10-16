@@ -1,3 +1,6 @@
+#if QABES_REMOTE
+#include "qabes_aead.h"
+#endif
 #include "sdk_web.h"
 #include "httpd.h"
 #include "sdk_worker.h"
@@ -91,7 +94,15 @@ static void status_page(struct httpd_conn *c){
 }
 static void memory_page(struct httpd_conn *c){
  mttl_worker_status status;int size;mttl_sdk_status_snapshot(&status);
- size=snprintf(json,sizeof(json),"{\"heap_free_bytes\":%lu,\"heap_min_free_bytes\":%lu,\"worker_observed_stack_descent_bytes\":%lu,\"stack_high_water_verified\":false}",(unsigned long)status.heap_free_bytes,(unsigned long)status.heap_min_free_bytes,(unsigned long)status.worker_observed_stack_descent_bytes);
+ size=snprintf(json,sizeof(json),"{\"heap_free_bytes\":%lu,\"heap_min_free_bytes\":%lu,\"worker_observed_stack_descent_bytes\":%lu,\"stack_high_water_verified\":false"
+#if QABES_REMOTE
+  ",\"qabes_aead\":%d"
+#endif
+  "}",(unsigned long)status.heap_free_bytes,(unsigned long)status.heap_min_free_bytes,(unsigned long)status.worker_observed_stack_descent_bytes
+#if QABES_REMOTE
+  ,qabes_aead_ready()
+#endif
+  );
  if(size<0||(size_t)size>=sizeof(json)){httpd_response_internal_server_error(c,0);httpd_conn_close(c);return;}send(c,json,size,"application/json");
 }
 static void energy_page(struct httpd_conn *c){
