@@ -25,7 +25,7 @@ int mttl_settings_mqtt_changed(const mttl_settings *,const mttl_settings *);
 #define MTTL_LED_NIGHT 1          /* all indicator LEDs dark */
 #define MTTL_LED_HIDE_OFF 2       /* only "on" LEDs lit */
 #define MTTL_LED_NIGHT_WINDOW 4   /* dark between night[0] and night[1] local time */
-#define MTTL_LED_HOLD_LOCK 8      /* child lock (all buttons locked) also blocks the 10 s setup hold, except in the first minute after power-up */
+#define MTTL_LED_HOLD_LOCK 8      /* blocks the 10 s setup hold on its own (outlet locks not needed), except in the first minute after power-up */
 #define MTTL_LED_ALL 15
 /* Wasel body version: v7 + leds + night[2]. Distinct from upstream numbering. */
 #define MTTL_SETTINGS_WASEL 0x57

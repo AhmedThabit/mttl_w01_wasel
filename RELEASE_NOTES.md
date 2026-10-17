@@ -1,5 +1,9 @@
 **Wasel 2.0.14-w3** — based on upstream standalone 2.0.14.
 
+Changed in w3-rc2:
+- The setup-hold lock works on its own: the 10 s hold of the main button is refused whether or
+  not the outlet buttons are locked (still allowed in the first minute after power-up).
+
 Fixed in w3:
 - Remote build: with all four outlets on, readings and status stopped updating (the worker
   waited forever on a confirmation flag the encrypted status never cleared). Fixed, and the

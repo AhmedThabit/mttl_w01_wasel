@@ -34,13 +34,14 @@ topic `wasel/<24 hex>`, password = 64-hex key, enabled. The frame format and top
 [`qabes_remote.h`](source/standalone/firmware/qabes_remote.h). Host tests (RFC vectors, frame rules and the full MQTT engine
 flow against a mock broker) run in CI.
 
-## LED options and child lock (both variants, from 2.0.14-w2)
+## LED options and setup-hold lock (both variants, from 2.0.14-w2)
 - **Night mode**: all indicator LEDs dark, switched manually or every night between two local times
   (the schedule's time zone). Outlets keep working.
 - **Only "on" lights**: outlets that are off stay dark instead of showing their off colour.
 - **Find the strip**: every outlet LED blinks for about 5 s (`POST /api/control` with `[5, 0]`, or remote op `[3]`).
-- **Child lock also blocks the setup hold**: with every button locked, holding the main button for 10 s
-  no longer opens Wi-Fi setup, except during the first minute after power-up, so Wi-Fi can always be reset.
+- **Setup-hold lock** (from w3-rc2 on its own, before only together with the child lock): holding the
+  main button for 10 s no longer opens Wi-Fi setup, except during the first minute after power-up, so
+  Wi-Fi can always be reset.
 - The device web page is English-only to free image RAM (the image runs from SRAM); build with
   `WASEL_KOREAN=1` to keep Korean.
 - Stored as settings body `0x57` (v7 + LED byte + night window). Saves in the upstream v7 format, such as

@@ -182,9 +182,10 @@ static __attribute__((noinline)) void timer_service(uint32_t now){
  * still finishes/release safely. No persistent lock or automatic re-enable. */
 static void protection_off(void){taskENTER_CRITICAL();if(relay_wake&&device.hardware.verified&&!relay_fault){control_head=0;control_pending=1;control_queue[0].channel=4;control_queue[0].on=0;control_queue[0].mask=15;control_queue[0].at=(uint32_t)xTaskGetTickCount()*portTICK_RATE_MS;watchdog_relay_at=control_queue[0].at;relay_busy=1;relay_desired=0;}taskEXIT_CRITICAL();if(relay_wake)xSemaphoreGive(relay_wake);}
 void mttl_sdk_button_event(unsigned index,int event){unsigned on;if(index>4||!event)return;
- /* Wasel: with every button locked the 10 s setup hold is refused too (flash instead),
-  * except during the first minute after power-up so Wi-Fi can always be reconfigured. */
- if(index==0&&event==2&&(device.settings.leds&MTTL_LED_HOLD_LOCK)&&device.settings.button_lock==15&&(uint32_t)xTaskGetTickCount()*portTICK_RATE_MS>60000u){
+ /* Wasel: setup-hold lock (independent of the outlet button locks): the 10 s hold is
+  * refused (LEDs flash instead), except during the first minute after power-up so
+  * Wi-Fi can always be reconfigured. */
+ if(index==0&&event==2&&(device.settings.leds&MTTL_LED_HOLD_LOCK)&&(uint32_t)xTaskGetTickCount()*portTICK_RATE_MS>60000u){
   taskENTER_CRITICAL();lock_flash_requested|=15;taskEXIT_CRITICAL();if(relay_wake)xSemaphoreGive(relay_wake);return;}
  if(index==0&&event==2){taskENTER_CRITICAL();if(!energy_barrier_state){provision_requested=1;setup_led_edges=6;setup_led_at=(uint32_t)xTaskGetTickCount()*portTICK_RATE_MS-200u;}taskEXIT_CRITICAL();return;}
  taskENTER_CRITICAL();on=index?!(relay_desired&(1u<<(index-1))):!(relay_desired&(15u&~device.settings.button_lock));
