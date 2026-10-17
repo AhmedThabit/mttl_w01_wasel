@@ -15,6 +15,8 @@ int mttl_hardware_indicators(mttl_hardware_port *,uint8_t known,uint8_t on);
 /* Temporary LED overlay only; never updates logical shadow or coil bits.
  * mask=0 restores current shadow, including the unchanged main LED. */
 int mttl_hardware_lock_flash(mttl_hardware_port *,uint8_t mask,int lit);
+/* Wasel find: all outlet LEDs and the main LED in one colour, alternating per phase. */
+int mttl_hardware_find_flash(mttl_hardware_port *,int phase);
 typedef struct { mttl_sample power[4],meter[4],current[4],temperature[4],voltage,total_power,total_meter,total_current; } mttl_hardware_samples;
 /* Invalid register read never turns into a fabricated zero sample. */
 void mttl_hardware_sample(mttl_sample *,int read_ok,int32_t value,uint32_t now);

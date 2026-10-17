@@ -8,6 +8,16 @@ int mttl_hardware_lock_flash(mttl_hardware_port *p,uint8_t mask,int lit){
  for(i=0;i<4;i++)if(mask&(1u<<i)){const uint8_t *pair=led_pair[i];uint8_t bits=(1u<<pair[1])|(1u<<pair[2]);out[pair[0]]=(out[pair[0]]&~bits)|(lit?bits:0);}
  return p->write(p->context,out,4);
 }
+/* Wasel find: every outlet LED and the main-button LED show one colour (phase 0: the "on"
+ * colour, phase 1: the "off" colour), so alternating phases makes the whole strip change
+ * colour. Overlay only, like lock_flash: the logical shadow is untouched. */
+int mttl_hardware_find_flash(mttl_hardware_port *p,int phase){
+ uint8_t out[4];unsigned i;if(!p||!p->verified||!p->write||p->active)return 0;
+ memcpy(out,p->shadow,4);out[1]&=0xcf;out[2]&=0xc0;
+ for(i=0;i<4;i++){const uint8_t *pair=led_pair[i];out[pair[0]]=(uint8_t)((out[pair[0]]&~((1u<<pair[1])|(1u<<pair[2])))|(1u<<pair[phase?2:1]));}
+ out[1]=(uint8_t)((out[1]&0xf3)|(phase?8:4));
+ return p->write(p->context,out,4);
+}
 int mttl_hardware_indicators(mttl_hardware_port *p,uint8_t known,uint8_t on){uint8_t out[4];unsigned i;const uint8_t *pair;
  if(!p||!p->verified||!p->write||p->active)return 0;memcpy(out,p->shadow,4);out[1]&=0xcf;out[2]&=0xc0;
  for(i=0;i<4;i++){pair=led_pair[i];out[pair[0]]&=~((1u<<pair[1])|(1u<<pair[2]));if(known&(1u<<i))out[pair[0]]|=1u<<pair[(on&(1u<<i))?1:2];}

@@ -38,7 +38,7 @@ flow against a mock broker) run in CI.
 - **Night mode**: all indicator LEDs dark, switched manually or every night between two local times
   (the schedule's time zone). Outlets keep working.
 - **Only "on" lights**: outlets that are off stay dark instead of showing their off colour.
-- **Find the strip**: every outlet LED blinks for about 5 s (`POST /api/control` with `[5, 0]`, or remote op `[3]`).
+- **Find the strip**: every outlet LED and the main-button LED switch colour (on/off colours) and the Wi-Fi LED blinks for about 5 s (`POST /api/control` with `[5, 0]`, or remote op `[3]`).
 - **Setup-hold lock** (from w3-rc2 on its own, before only together with the child lock): holding the
   main button for 10 s no longer opens Wi-Fi setup, except during the first minute after power-up, so
   Wi-Fi can always be reset.

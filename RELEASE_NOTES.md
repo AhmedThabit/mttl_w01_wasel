@@ -1,5 +1,10 @@
 **Wasel 2.0.14-w3** — based on upstream standalone 2.0.14.
 
+Changed in w3-rc3:
+- Find the strip: every outlet LED and the main-button LED switch between their two colours
+  (about 5 s) and the Wi-Fi LED blinks, instead of a plain blink of the outlet LEDs only.
+  The button-lock feedback stays a plain blink, so the two are easy to tell apart.
+
 Changed in w3-rc2:
 - The setup-hold lock works on its own: the 10 s hold of the main button is refused whether or
   not the outlet buttons are locked (still allowed in the first minute after power-up).

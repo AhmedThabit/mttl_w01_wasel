@@ -44,6 +44,7 @@ static volatile uint8_t relay_busy,storage_busy;
 static uint8_t indicator_busy,lock_flash_requested,lock_flash_mask,lock_flash_edges;
 /* Wasel: redraw LEDs after a policy change; blink every channel to find the strip. */
 static volatile uint8_t led_refresh,find_requested;
+static uint8_t find_mode; /* lock_flash_* is running a find (colour change), not a lock flash */
 static uint32_t lock_flash_at;
 static uint32_t relay_save_attempt_at;
 static uint8_t relay_save_retry;
@@ -93,12 +94,14 @@ static __attribute__((noinline)) void lock_flash_tick(uint32_t now){unsigned mas
  taskENTER_CRITICAL();
  if(storage_busy||energy_barrier_state||occupied||control_pending||relay_port.active||relay_fault||!relay_port.verified){taskEXIT_CRITICAL();return;}
  if(lock_flash_requested){lock_flash_mask|=lock_flash_requested;lock_flash_requested=0;lock_flash_edges=6;lock_flash_at=now-120u;}
- if(find_requested){find_requested=0;lock_flash_mask=15;lock_flash_edges=40;lock_flash_at=now-120u;}
+ if(find_requested){find_requested=0;lock_flash_mask=15;lock_flash_edges=40;lock_flash_at=now-120u;find_mode=1;}
  if(led_refresh){led_refresh=0;if(!lock_flash_mask){lock_flash_mask=15;lock_flash_edges=0;lock_flash_at=now-120u;}}
  if(!lock_flash_mask||(uint32_t)(now-lock_flash_at)<120u){taskEXIT_CRITICAL();return;}
- lock_flash_at=now;mask=lock_flash_edges?lock_flash_mask:0;lit=!(lock_flash_edges&1);if(lock_flash_edges)--lock_flash_edges;else lock_flash_mask=0;
+ lock_flash_at=now;mask=lock_flash_edges?lock_flash_mask:0;lit=!(lock_flash_edges&1);if(lock_flash_edges)--lock_flash_edges;else{lock_flash_mask=0;find_mode=0;}
+ {int finding=find_mode&&mask;
  indicator_busy=1;taskEXIT_CRITICAL();
- mttl_led_raw=mask!=0;ok=mttl_hardware_lock_flash(&relay_port,(uint8_t)mask,lit);mttl_led_raw=0;
+ /* Find: the whole strip switches colour every 120 ms; a lock flash stays a plain blink. */
+ mttl_led_raw=mask!=0;ok=finding?mttl_hardware_find_flash(&relay_port,lit):mttl_hardware_lock_flash(&relay_port,(uint8_t)mask,lit);mttl_led_raw=0;}
  taskENTER_CRITICAL();indicator_busy=0;if(!ok){relay_fault=1;lock_flash_mask=lock_flash_requested=0;}taskEXIT_CRITICAL();
 }
 static void relay_task(void *unused){mttl_output out={&relay_port,mttl_hardware_begin,mttl_hardware_end};(void)unused;
@@ -160,7 +163,7 @@ static int control_enqueue(unsigned channel,unsigned on,int local){int ok=0;unsi
  * the relay task or allowing watchdog evaluation of this command. */
 watchdog_relay_at=control_queue[tail].at;relay_busy=1;if(channel==4)relay_desired=(relay_desired&~mask)|(on?mask:0);else if(on)relay_desired|=1u<<channel;else relay_desired&=~(1u<<channel);ok=1;}taskEXIT_CRITICAL();if(ok)xSemaphoreGive(relay_wake);return ok;}
 int mttl_sdk_control_request(unsigned channel,unsigned on){
- if(channel==5){if(!relay_wake||!relay_port.verified)return 0;find_requested=1;xSemaphoreGive(relay_wake);return 1;} /* Wasel: find the strip */
+ if(channel==5){if(!relay_wake||!relay_port.verified)return 0;taskENTER_CRITICAL();find_requested=1;setup_led_edges=24;setup_led_at=(uint32_t)xTaskGetTickCount()*portTICK_RATE_MS-200u;taskEXIT_CRITICAL();xSemaphoreGive(relay_wake);return 1;} /* Wasel: find the strip (outlet + main LEDs change colour, Wi-Fi LED blinks) */
  return control_enqueue(channel,on,0);}
 /* Wasel: LED policy from the settings and the strip's local time; redraw on change. */
 static __attribute__((noinline)) void led_service(int valid,uint64_t unix_ms){
