@@ -1,6 +1,7 @@
 /* Host test: Wasel settings body (0x57) with LED options; older bodies still load. */
 #include "settings.h"
 #include "qabes_remote.h"
+#include "settings_record.h"
 #include <stdio.h>
 #include <string.h>
 static int fails;
@@ -26,6 +27,11 @@ int main(void){
     CHECK(!mttl_settings_storage_unpack(body,n-1,&b));                      /* truncated */
     n=mttl_settings_pack(&a,body,sizeof(body));CHECK(n&&!memmem(body,n,"482916",6)); /* not in the web body */
     memset(&b,0,sizeof(b));CHECK(mttl_settings_unpack(body,n,&b)&&b.pin[0]==0);
+    /* through the flash slot encoder and back, as after a reboot */
+    {static uint8_t slot[MTTL_SETTINGS_SLOT],back[1024];size_t m;
+     n=mttl_settings_storage_pack(&a,body,sizeof(body));CHECK(mttl_settings_encode(slot,body,n,7));slot[MTTL_SETTINGS_SLOT-1]=0; /* commit byte, written last by the flash code */
+     CHECK(mttl_settings_extract(slot,back,sizeof(back),&m)&&m==n&&!memcmp(back,body,n));
+     memset(&b,0,sizeof(b));CHECK(mttl_settings_storage_unpack(back,m,&b)&&!strcmp(b.pin,"482916")&&!strcmp(b.ssid,a.ssid));}
     a.pin[0]=0;n=mttl_settings_storage_pack(&a,body,sizeof(body));CHECK(n&&body[0]==3);   /* no PIN: old record type */
     /* remote find command */
     CHECK(qabes_command((const uint8_t *)"\x03",1,&ch,&on)==3&&ch==5&&on==1);
