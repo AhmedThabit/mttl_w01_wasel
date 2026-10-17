@@ -1,0 +1,204 @@
+[
+  {
+    "path": "/",
+    "raw_bytes": 15150,
+    "gzip_bytes": 4127,
+    "sha256": "c6e6042fd953e129841a0be6de5f53fd03a78f88ddf25cd12707e6a91e5d9714"
+  },
+  {
+    "path": "/i18n.js",
+    "raw_bytes": 2845,
+    "gzip_bytes": 1383,
+    "sha256": "a34c119456424bd7abd060b8e9fd78309ea5569e77fc8ad34cf75a97bb2ff8ed"
+  },
+  {
+    "path": "/live.js",
+    "raw_bytes": 26478,
+    "gzip_bytes": 8936,
+    "sha256": "bae338597ae96dbb4f39baf805aa98468e33023dc196f25dbdb7629717859cb1"
+  },
+  {
+    "path": "/ota-live.js",
+    "raw_bytes": 3057,
+    "gzip_bytes": 1484,
+    "sha256": "3afe30a77c9952cd946e8e02a6e81d8156fe9d71d12cfe59a95ce5267e6aa239"
+  }
+]
+compiled sdk_baseline.cpp
+compiled bounded_sbrk.c
+compiled http_only_adapter.c
+compiled newlib_scheduler_guard.c
+compiled variant.cpp
+compiled sdk_test_heap.c
+compiled sdk_ota_runtime.c
+compiled core.c
+compiled ota_guard.c
+compiled ota_stream.c
+compiled ota_hash.c
+compiled ota_readback.c
+compiled ota_stage.c
+compiled ota_identity.c
+compiled ota_session.c
+compiled http_framing.c
+compiled sdk_ota_flash.c
+compiled sdk_wifi_adapter.c
+compiled lifecycle.c
+compiled sdk_web.c
+compiled sdk_wifi_no_fast_connect.c
+compiled sdk_dhcp.c
+compiled sdk_httpd_core.c
+compiled sdk_worker.c
+compiled meter_probe.c
+compiled meter_bus.c
+compiled meter_init.c
+compiled meter_convert.c
+compiled sdk_meter.c
+compiled sdk_energy.c
+compiled sdk_memory.c
+compiled sdk_relay.c
+compiled sdk_sse.c
+compiled wifi_form.c
+compiled sdk_http_io.c
+compiled sdk_httpd_msg.c
+compiled settings_record.c
+compiled settings.c
+compiled protection.c
+compiled scheduler.c
+compiled settings_store.c
+compiled sdk_settings_flash.c
+compiled config_store.c
+compiled ntp.c
+compiled ntp_client.c
+compiled ntp_transport.c
+compiled sdk_ntp.c
+compiled mqtt_session.c
+compiled mqtt_command.c
+compiled mqtt_wire.c
+compiled ha_discovery.c
+compiled mqtt_engine.c
+compiled hardware_port.c
+compiled device_app.c
+compiled sdk_mqtt_socket.c
+compiled IPAddress.cpp
+compiled LOGUARTClass.cpp
+compiled PowerManagement.cpp
+compiled Print.cpp
+compiled RingBuffer.cpp
+compiled Stream.cpp
+compiled Tone.cpp
+compiled WInterrupts.c
+compiled WMath.cpp
+compiled WString.cpp
+compiled ard_socket.c
+compiled ard_ssl.c
+compiled b64.cpp
+compiled cxxabi-compat.cpp
+compiled hooks.c
+compiled itoa.c
+compiled main.cpp
+compiled server_drv.cpp
+compiled ssl_drv.cpp
+compiled wifi_drv.cpp
+compiled wiring.c
+compiled wiring_analog.c
+compiled wiring_digital.c
+compiled wiring_os.c
+compiled wiring_pulse.cpp
+compiled wiring_shift.c
+compiled wiring_watchdog.c
+compiled WiFi.cpp
+compiled WiFiClient.cpp
+compiled WiFiSSLClient.cpp
+compiled WiFiServer.cpp
+compiled WiFiUdp.cpp
+compiled PubSubClient.cpp
+LINK EXIT 0 size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(rtl8195a_dm.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(rtl8195a_pmu_cmd.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(HalPwrSeqCmd.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(hci_intfs.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(lxbus_hci_intf.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(freertos_isr.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(lxbus_intf.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(wlan_ram_map.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(HalHWImg8195A_MAC.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(HalHWImg8195A_RF.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(HalPhyRf_8195A.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_wlan.a(HalPhyRf.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_ameba.a(rtl_consol.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_ameba.a(wifi_eap_config.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_ameba.a(wlan_network.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_ameba.a(hal_timer.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+/tmp/gcc/bin/../lib/gcc/arm-none-eabi/4.8.3/../../../../arm-none-eabi/bin/ld: warning: /home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/work/reference/ameba-arduino-1/Arduino_package/hardware/variants/rtl8710/lib_ameba.a(rtl8195a_timer.o) uses 32-bit enums yet the output is to use variable-size enums; use of enum values across objects may fail
+
+/home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/standalone/results/network-ota-test/sdk/offline-only.axf  :
+section                  size        addr
+.ram.start.table           20   268438472
+.ram_image1.text         6724   268438492
+.tcm                    40960   536805376
+.image2.start.table        24   268460032
+.ram_image2.text       322776   268460056
+.ARM.exidx                  8   268782832
+.ram.data                6904   268782840
+.ram.bss                57896   268789744
+.bf_data                40216   268847640
+.mttl_cache              4328   536846336
+.ARM.attributes            41           0
+.comment                  240           0
+.debug_info            309651           0
+.debug_abbrev           47099           0
+.debug_aranges           7664           0
+.debug_ranges           11464           0
+.debug_line             92026           0
+.debug_str              53139           0
+.debug_frame            22896           0
+.debug_loc             116266           0
+Total                 1140342
+
+
+
+{
+  "version": "2.0.14",
+  "profile": "NETWORK_OTA_TEST_RAM_SETTINGS",
+  "elf_sha256": "daa18a8323f3b76e597ba9fb071c9fd1d4e9711bc2c1d804b1d9d977918ac1a1",
+  "files": [
+    {
+      "path": "/home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/standalone/results/network-ota-test/mttl-w01-2.0.14-network-OTA-test.bin",
+      "bytes": 329732,
+      "sha256": "3fe2fac990b5e112cbad58d81b30be952af110ea5c99b044cb0ab41984d23508"
+    },
+    {
+      "path": "/home/runner/work/mttl_w01_wasel/mttl_w01_wasel/source/standalone/results/network-ota-test/mttl-w01-2.0.14-network-OTA-test.fwr",
+      "bytes": 329732,
+      "sha256": "efa714531e8679c681e52a8f0c198cd0c1de5ab79282b6bc87bd9256cad90cd4"
+    }
+  ],
+  "network_start_verified_in_setup_machine_code": true,
+  "setup_arm_mock_success_failure_cases": 2,
+  "objcopy_byte_match": true,
+  "bin_fwr_roundtrip": true,
+  "native_ota_hardware_field_verified": true,
+  "msp_reserve_bytes": 4096,
+  "static_gap_to_msp_bytes": 2256,
+  "link_warning_count": 1035,
+  "boot_signature": "FFFFFFFFFFFFFFFF",
+  "device_written": false,
+  "target_boot_verified": false,
+  "validation_profile": "Portable format/roundtrip and setup emulator; original decoder fixture not included",
+  "production_ready": false,
+  "relay_enabled": true,
+  "settings_persistent": false,
+  "ota_write_enabled": true,
+  "settings_flash_enabled": true,
+  "settings_sectors": [
+    "0xee000",
+    "0xef000"
+  ],
+  "initial_rtos_heap_bytes": 39936,
+  "sensor_gpio_enabled": true,
+  "ota_runtime_validated": false,
+  "warning": "Experimental bring-up candidate, not target-boot validated. Recovery debugger required. No direct full-flash writing; no bootloader/factory replacement.",
+  "build_id": "e5e222b7bd0ad340",
+  "watchdog_enabled": true,
+  "legacy_relay_timing": false
+}
