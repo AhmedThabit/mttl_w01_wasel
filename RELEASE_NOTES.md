@@ -1,7 +1,7 @@
 **Wasel 2.0.14-w3** — based on upstream standalone 2.0.14.
 
-Tested on the strip (MTTL-W01, remote build): readings with all four outlets on, the
-find the strip, encrypted remote control. The setup-hold lock on its own is covered by the firmware logic but was not pressed by hand.
+Tested on the strip (MTTL-W01, remote build): readings with all four outlets on, find the
+strip, encrypted remote control. The setup-hold lock on its own was not yet pressed by hand.
 
 Changed in w3-rc3:
 - Find the strip: every outlet LED and the main-button LED switch between their two colours
