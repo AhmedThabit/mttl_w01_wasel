@@ -39,7 +39,7 @@ void mttl_settings_default(mttl_settings *s){
     mttl_schedule_default(&s->schedule);
 }
 int mttl_settings_valid(const mttl_settings *s){
-    size_t i,n,k;if(!s||s->language>1||s->mqtt_enabled>1||s->button_lock>15||!s->port||s->energy_valid>15||s->leds>MTTL_LED_ALL||s->night[0]>1439||s->night[1]>1439||!mttl_protection_valid(&s->protection)||!mttl_schedule_valid(&s->schedule))return 0;
+    size_t i,n,k;if(!s||s->language>1||s->mqtt_enabled>1||s->button_lock>15||!s->port||s->energy_valid>15||s->leds>MTTL_LED_ALL||s->night[0]>1439||s->night[1]>1439||!mttl_settings_pin_valid(s->pin)||!mttl_protection_valid(&s->protection)||!mttl_schedule_valid(&s->schedule))return 0;
     for(i=0;i<4;i++){if(s->energy_raw[i]>0xffffffu||s->energy_wh[i]>0x7fffffffu||s->timer_minutes[i]>1440)return 0;
       if(s->timer_minutes[i]){unsigned r;for(r=0;r<8;r++)if((s->schedule.rules[r].mode&127)&&(s->schedule.rules[r].channel==i||s->schedule.rules[r].channel==4))return 0;}}
     if(!utf8(s->device,65,1))return 0;for(i=0;i<4;i++)if(!utf8(s->channel[i],65,1))return 0;
@@ -88,6 +88,7 @@ int mttl_settings_unpack(const uint8_t *body,size_t size,mttl_settings *out){
     *out=tmp;result=1;
 done:for(i=0;i<sizeof(tmp);i++)wipe[i]=0;return result;
 }
+int mttl_settings_pin_valid(const char *pin){size_t i;for(i=0;i<9&&pin[i];i++)if(pin[i]<'0'||pin[i]>'9')return 0;return i==0||(i>=4&&i<=8);}
 void mttl_settings_keep_energy(mttl_settings *to,const mttl_settings *from){
     unsigned i;for(i=0;i<4;i++){to->energy_raw[i]=from->energy_raw[i];to->energy_wh[i]=from->energy_wh[i];}to->energy_valid=from->energy_valid;
     to->relay_known=from->relay_known;to->relay_on=from->relay_on;
@@ -97,17 +98,21 @@ size_t mttl_settings_storage_pack(const mttl_settings *s,uint8_t *out,size_t cap
     n=mttl_settings_pack(s,out+3,cap-38);if(!n)return 0;
     out[0]=3;out[1]=(uint8_t)n;out[2]=(uint8_t)(n>>8);out[3+n]=s->energy_valid;
     for(i=0;i<8;i++){uint32_t v=i<4?s->energy_raw[i]:s->energy_wh[i-4];for(j=0;j<4;j++)out[4+n+4*i+j]=(uint8_t)(v>>(8*j));}
-    out[n+36]=s->relay_known;out[n+37]=s->relay_on;return n+38;
+    out[n+36]=s->relay_known;out[n+37]=s->relay_on;
+    {size_t k=strlen(s->pin);if(!k)return n+38;if(cap<n+39+k)return 0;out[0]=MTTL_STORAGE_PIN;out[n+38]=(uint8_t)k;memcpy(out+n+39,s->pin,k);return n+39+k;}
 }
 int mttl_settings_storage_unpack(const uint8_t *body,size_t size,mttl_settings *out){
     mttl_settings tmp;size_t n,i,j;int ok=0;volatile uint8_t *wipe=(volatile uint8_t *)&tmp;
     if(!body||!out||!size)return 0;
     if(body[0]==1||body[0]==4||body[0]==5||body[0]==6||body[0]==7||body[0]==MTTL_SETTINGS_WASEL)return mttl_settings_unpack(body,size,out);
-    if((body[0]!=2&&body[0]!=3)||size<(body[0]==3?43:41)||size>MTTL_SETTINGS_BODY_MAX)return 0;
-    n=(size_t)body[1]|((size_t)body[2]<<8);if(n!=size-(body[0]==3?38:36))return 0;
+    if((body[0]!=2&&body[0]!=3&&body[0]!=MTTL_STORAGE_PIN)||size<(body[0]!=2?43:41)||size>MTTL_SETTINGS_BODY_MAX)return 0;
+    n=(size_t)body[1]|((size_t)body[2]<<8);
+    if(body[0]==MTTL_STORAGE_PIN){size_t k;if(n+39>size)return 0;k=body[n+38];if(k<4||k>8||n+39+k!=size)return 0;}
+    else if(n!=size-(body[0]==3?38:36))return 0;
     if(!mttl_settings_unpack(body+3,n,&tmp))goto done;
     tmp.energy_valid=body[3+n];
-    if(body[0]==3){tmp.relay_known=body[n+36];tmp.relay_on=body[n+37];if(tmp.relay_known>15||(tmp.relay_on&~tmp.relay_known))goto done;}
+    if(body[0]==MTTL_STORAGE_PIN){memcpy(tmp.pin,body+n+39,body[n+38]);tmp.pin[body[n+38]]=0;}
+    if(body[0]!=2){tmp.relay_known=body[n+36];tmp.relay_on=body[n+37];if(tmp.relay_known>15||(tmp.relay_on&~tmp.relay_known))goto done;}
     for(i=0;i<8;i++){uint32_t v=0;for(j=0;j<4;j++)v|=(uint32_t)body[4+n+4*i+j]<<(8*j);if(i<4)tmp.energy_raw[i]=v;else tmp.energy_wh[i-4]=v;}
     if(!mttl_settings_valid(&tmp))goto done;*out=tmp;ok=1;
 done:for(i=0;i<sizeof(tmp);i++)wipe[i]=0;return ok;

@@ -57,9 +57,26 @@ static void hex_ssid(const char *ssid,char hex[65]){unsigned i;static const char
 static union {char json[1792];uint8_t settings[1024];} http_scratch __attribute__((section(".mttl.cache")));
 #define json http_scratch.json
 static int origin_ok(struct httpd_conn *c);
+/* Wasel: write requests carry the local PIN in X-Wasel-Pin when one is set. On failure this
+ * answers 401 (or 429 while locked) without WWW-Authenticate, so browsers show no login box. */
+static int pin_ok(struct httpd_conn *c){char *given=0;int r;static const char need[]="{\"pin_required\":true}",locked[]="{\"pin_locked\":true}";
+ if(!mttl_sdk_pin_set_now())return 1;
+ httpd_request_get_header_field(c,"X-Wasel-Pin",&given);r=mttl_sdk_pin_check(given);if(given)httpd_free(given);if(r==1)return 1;
+ httpd_response_write_header_start(c,r<0?"429 Too Many Requests":"401 Unauthorized","application/json",r<0?sizeof(locked)-1:sizeof(need)-1);
+ httpd_response_write_header(c,"Connection","close");httpd_response_write_header_finish(c);httpd_response_write_data(c,(uint8_t *)(r<0?locked:need),r<0?sizeof(locked)-1:sizeof(need)-1);return 0;}
+/* POST /api/pin, body "" (remove) or 4..8 digits; needs the current PIN when one is set. */
+static void pin_page(struct httpd_conn *c){char pin[9];size_t n=0;static const char done[]="{\"accepted\":true}";
+ if(!httpd_request_is_method(c,"POST")){httpd_response_method_not_allowed(c,0);goto close;}
+ if(!pin_ok(c))goto close;
+ if(c->request.content_len>8){httpd_response_bad_request(c,"PIN is 4 to 8 digits");goto close;}
+ while(n<c->request.content_len){int count=httpd_request_read_data(c,(uint8_t *)pin+n,c->request.content_len-n);if(count<=0)goto close;n+=(size_t)count;}
+ pin[n]=0;if(!mttl_sdk_pin_set(pin)){httpd_response_bad_request(c,"Invalid PIN or busy");goto close;}
+ response(c,done,sizeof(done)-1,"application/json");return;
+close:httpd_conn_close(c);}
 static void control_page(struct httpd_conn *c){uint8_t body[2];size_t n=0;
  if(httpd_request_is_method(c,"GET")){uint32_t t[4];int length;mttl_sdk_control_timing(t);length=snprintf(json,sizeof(json),"{\"sequence\":%lu,\"wait_ms\":%lu,\"run_ms\":%lu,\"busy\":%lu}",(unsigned long)t[0],(unsigned long)t[1],(unsigned long)t[2],(unsigned long)t[3]);if(length>0&&(size_t)length<sizeof(json))response(c,json,length,"application/json");else httpd_conn_close(c);return;}
  if(!httpd_request_is_method(c,"POST")){httpd_response_method_not_allowed(c,0);goto close;}
+ if(!pin_ok(c))goto close;
  if(!origin_ok(c)||c->request.content_len!=2){httpd_response_bad_request(c,"Two-byte channel/on command required");goto close;}
  while(n<2){int count=httpd_request_read_data(c,body+n,2-n);if(count<=0||(size_t)count>2-n)goto close;n+=count;}
  if(!mttl_sdk_control_request(body[0],body[1])){httpd_response_too_many_requests(c,"Output disabled, busy or faulted");goto close;}
@@ -72,6 +89,7 @@ static void config_page(struct httpd_conn *c){
     uint8_t *body=http_scratch.settings;size_t used=0,n;int accepted=0;char *type=0;
     if(httpd_request_is_method(c,"GET")){n=mttl_sdk_device_json(json,sizeof(json),1);if(n)send(c,json,n,"application/json");else{httpd_response_internal_server_error(c,0);httpd_conn_close(c);}return;}
     if(!httpd_request_is_method(c,"POST")){httpd_response_method_not_allowed(c,0);httpd_conn_close(c);return;}
+    if(!pin_ok(c)){httpd_conn_close(c);return;}
     if(!origin_ok(c)){httpd_response_bad_request(c,"Same-origin required");httpd_conn_close(c);return;}
     httpd_request_get_header_field(c,"Content-Type",&type);accepted=type&&!strcmp(type,"application/octet-stream");if(type)httpd_free(type);
     if(!accepted||!c->request.content_len||c->request.content_len>sizeof(http_scratch.settings)){httpd_response_bad_request(c,"Invalid settings body");httpd_conn_close(c);return;}accepted=0;
@@ -107,12 +125,12 @@ static void memory_page(struct httpd_conn *c){
   ",\"qabes_aead\":%d"
 #endif
   /* Wasel build: release tag and variant, so the app can tell the builds apart. */
-  ",\"wasel\":\"" WASEL_BUILD "\",\"variant\":\"" WASEL_VARIANT "\""
+  ",\"wasel\":\"" WASEL_BUILD "\",\"variant\":\"" WASEL_VARIANT "\",\"pin\":%d"
   "}",(unsigned long)status.heap_free_bytes,(unsigned long)status.heap_min_free_bytes,(unsigned long)status.worker_observed_stack_descent_bytes
 #if QABES_REMOTE
   ,qabes_aead_ready()
 #endif
-  );
+  ,mttl_sdk_pin_set_now());
  if(size<0||(size_t)size>=sizeof(json)){httpd_response_internal_server_error(c,0);httpd_conn_close(c);return;}send(c,json,size,"application/json");
 }
 static void energy_page(struct httpd_conn *c){
@@ -167,6 +185,7 @@ static void ota_upload(struct httpd_conn *c){
     static const uint8_t seed[16]={0xca,0x59,0x23,0xe7,0xd7,0x9a,0x84,0xe8,0x43,0xb3,0xaf,0xe7,0x94,0xb1,0xaf,0xa7};
     uint8_t expected[32]={0},key[16],chunk[256];uint32_t received=0;char *value=0;int ok;
     if(!httpd_request_is_method(c,"POST")){httpd_response_method_not_allowed(c,0);goto close;}
+    if(!pin_ok(c))goto close;
     if(!ota_access(c)){httpd_response_bad_request(c,"Same-origin required");goto close;}
     value=0;httpd_request_get_header_field(c,"Content-Type",&value);ok=value&&!strcmp(value,"application/x-mttl-fwr");if(value)httpd_free(value);if(!ok){httpd_response_bad_request(c,"FWR required");goto close;}
     mttl_http_ota_budget(c);
@@ -188,6 +207,7 @@ close:httpd_conn_close(c);
 static void configure(struct httpd_conn *c){
     unsigned char body[321];char ssid[33],password[65];size_t received=0;int accepted=0;
     if(!httpd_request_is_method(c,"POST")){httpd_response_method_not_allowed(c,0);goto close;}
+    if(!pin_ok(c))goto close;
     if(!origin_ok(c)){httpd_response_bad_request(c,"Invalid origin");goto close;}
     {
         char *type=0;int valid;
@@ -225,7 +245,7 @@ int mttl_sdk_web_start(void){
 #ifdef MTTL_OTA_TEST
     if(httpd_reg_page_callback("/ota",ota_redirect)<0||httpd_reg_page_callback("/api/firmware/status",ota_status)<0||httpd_reg_page_callback("/api/firmware/upload",ota_upload)<0){httpd_clear_page_callbacks();return 0;}
 #endif
-    if(httpd_reg_page_callback("/api/control",control_page)<0){httpd_clear_page_callbacks();return 0;}
+    if(httpd_reg_page_callback("/api/control",control_page)<0||httpd_reg_page_callback("/api/pin",pin_page)<0){httpd_clear_page_callbacks();return 0;}
     if(httpd_reg_page_callback("/api/events",mttl_sdk_sse_open)<0){httpd_clear_page_callbacks();return 0;}
     for(i=0;i<sizeof(mttl_assets)/sizeof(mttl_assets[0]);i++)if(httpd_reg_page_callback((char *)mttl_assets[i].path,asset)<0){httpd_clear_page_callbacks();return 0;}
     if(httpd_reg_page_callback("/api/device",device_page)<0 || httpd_reg_page_callback("/api/config",config_page)<0 || httpd_reg_page_callback("/api/version",info)<0 || httpd_reg_page_callback("/api/wifi",configure)<0 || httpd_reg_page_callback("/api/status",status_page)<0 || httpd_reg_page_callback("/api/scan",scan_page)<0 || httpd_reg_page_callback("/api/memory",memory_page)<0 || httpd_reg_page_callback("/api/energy",energy_page)<0){httpd_clear_page_callbacks();return 0;}

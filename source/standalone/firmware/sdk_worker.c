@@ -152,7 +152,7 @@ static size_t device_size;
 /* Fully populated by config_reserve before config_ready; CPU-only staging. */
 static mttl_settings pending_config __attribute__((section(".mttl.cache")));
 static uint8_t config_ready;
-static uint8_t config_keep_password,config_keep_leds;
+static uint8_t config_keep_password,config_keep_leds,config_pin_change;
 static uint8_t ready,ap_ready,stop_phase;
 static mttl_worker_status published;
 static uint32_t rssi_polled_at;
@@ -208,7 +208,19 @@ void mttl_sdk_buttons_poll(void){unsigned i;uint32_t now;if(!buttons_ready)retur
 static __attribute__((noinline)) size_t config_snapshot(char *out,size_t cap){mttl_settings copy;int persistent;size_t n;taskENTER_CRITICAL();copy=device.settings;persistent=device.persistent;taskEXIT_CRITICAL();n=mttl_settings_json(&copy,persistent,out,cap);{volatile uint8_t *p=(volatile uint8_t *)&copy;size_t i;for(i=0;i<sizeof(copy);i++)p[i]=0;}return n;}
 size_t mttl_sdk_device_json(char *out,size_t cap,int settings){size_t n;if(settings)return config_snapshot(out,cap);taskENTER_CRITICAL();n=device_size;if(n&&n<cap){memcpy(out,device_json,n+1);}else n=0;taskEXIT_CRITICAL();return n;}
 int mttl_sdk_settings_persistent(void){return device.persistent!=0;}
-int mttl_sdk_config_reserve(const uint8_t *body,size_t n,int keep_password){int ok=0;mttl_settings candidate;if(!mttl_settings_unpack(body,n,&candidate))return 0;taskENTER_CRITICAL();if((ap_ready||published.state==MTTL_NET_ONLINE)&&!occupied&&!config_occupied&&!energy_barrier_state){pending_config=candidate;config_keep_password=keep_password!=0;config_keep_leds=body[0]!=MTTL_SETTINGS_WASEL;config_occupied=1;ok=1;}taskEXIT_CRITICAL();{volatile uint8_t *p=(volatile uint8_t *)&candidate;size_t i;for(i=0;i<sizeof(candidate);i++)p[i]=0;}return ok;}
+int mttl_sdk_config_reserve(const uint8_t *body,size_t n,int keep_password){int ok=0;mttl_settings candidate;if(!mttl_settings_unpack(body,n,&candidate))return 0;taskENTER_CRITICAL();if((ap_ready||published.state==MTTL_NET_ONLINE)&&!occupied&&!config_occupied&&!energy_barrier_state){pending_config=candidate;config_keep_password=keep_password!=0;config_keep_leds=body[0]!=MTTL_SETTINGS_WASEL;config_pin_change=0;config_occupied=1;ok=1;}taskEXIT_CRITICAL();{volatile uint8_t *p=(volatile uint8_t *)&candidate;size_t i;for(i=0;i<sizeof(candidate);i++)p[i]=0;}return ok;}
+/* Wasel PIN for the local write API. Not enforced in the setup access point (someone held the
+ * button, i.e. is at the strip). Five wrong PINs lock the API for 60 s. */
+static uint8_t pin_fails;static uint32_t pin_locked_at;static uint8_t pin_locked;
+int mttl_sdk_pin_set_now(void){return device.settings.pin[0]!=0;}
+int mttl_sdk_pin_check(const char *given){uint32_t now=(uint32_t)xTaskGetTickCount()*portTICK_RATE_MS;unsigned i,diff=0;
+ if(!device.settings.pin[0]||published.state==MTTL_NET_AP)return 1;
+ if(pin_locked){if((uint32_t)(now-pin_locked_at)<60000u)return -1;pin_locked=0;}
+ if(given&&strlen(given)==strlen(device.settings.pin))for(i=0;given[i];i++)diff|=(unsigned)(given[i]^device.settings.pin[i]);else diff=1;
+ if(!diff){pin_fails=0;return 1;}
+ if(++pin_fails>=5){pin_fails=0;pin_locked=1;pin_locked_at=now;}return 0;}
+int mttl_sdk_pin_set(const char *pin){int ok=0;if(!mttl_settings_pin_valid(pin))return 0;
+ taskENTER_CRITICAL();if((ap_ready||published.state==MTTL_NET_ONLINE)&&!occupied&&!config_occupied&&!energy_barrier_state){pending_config=device.settings;memset(pending_config.pin,0,sizeof(pending_config.pin));strcpy(pending_config.pin,pin);config_keep_password=1;config_keep_leds=1;config_pin_change=1;config_occupied=1;config_ready=1;ok=1;}taskEXIT_CRITICAL();return ok;}
 void mttl_sdk_config_release(int accepted){taskENTER_CRITICAL();if(config_occupied){if(accepted)config_ready=1;else{memset(&pending_config,0,sizeof(pending_config));config_occupied=0;}}taskEXIT_CRITICAL();}
 static mttl_lifecycle life;
 static uint8_t scan_requested;
@@ -334,6 +346,8 @@ static void worker(void *p){
             if(config_keep_password)memcpy(pending_config.mqtt_password,device.settings.mqtt_password,65);
             /* Upstream-format saves (e.g. the web page) keep the Wasel LED options. */
             if(config_keep_leds){pending_config.leds=device.settings.leds;pending_config.night[0]=device.settings.night[0];pending_config.night[1]=device.settings.night[1];}
+            /* The PIN is never in a configuration body: keep it unless this save sets it. */
+            if(!config_pin_change)memcpy(pending_config.pin,device.settings.pin,sizeof(pending_config.pin));
             mttl_settings_keep_energy(&pending_config,&device.settings);
             /* Flash operations never run with scheduler/interrupts disabled. */
             if(mttl_settings_valid(&pending_config)&&mttl_sdk_settings_save(&pending_config)==1){

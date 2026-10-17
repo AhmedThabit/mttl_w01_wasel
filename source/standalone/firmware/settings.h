@@ -13,6 +13,9 @@ typedef struct {
     uint16_t timer_minutes[4]; /* 0 unregistered, 1..1440 automatic OFF. */
     /* Wasel: LED options (MTTL_LED_*) and the night window in local minutes [start,end). */
     uint8_t leds;uint16_t night[2];
+    /* Wasel: PIN for the local write API, "" (none) or 4..8 digits. Kept in flash only
+     * (storage record MTTL_STORAGE_PIN); never part of the web configuration body or any response. */
+    char pin[9];
     /* Device-owned checkpoint; excluded from web configuration encoding. */
     uint32_t energy_raw[4],energy_wh[4];
     uint8_t energy_valid;
@@ -31,6 +34,8 @@ int mttl_settings_mqtt_changed(const mttl_settings *,const mttl_settings *);
 #define MTTL_SETTINGS_WASEL 0x57
 /* Versioned length-prefixed encoding, never raw C structure/padding. */
 #define MTTL_SETTINGS_BODY_MAX 1024
+/* Wasel flash record: type 3 + [PIN length][PIN digits]. Distinct from every body version. */
+#define MTTL_STORAGE_PIN 0x5C
 void mttl_settings_default(mttl_settings *s);
 int mttl_settings_valid(const mttl_settings *s);
 int mttl_settings_utf8(const char *,size_t capacity);
@@ -39,4 +44,5 @@ int mttl_settings_unpack(const uint8_t *body,size_t size,mttl_settings *out);
 size_t mttl_settings_storage_pack(const mttl_settings *,uint8_t *,size_t);
 int mttl_settings_storage_unpack(const uint8_t *,size_t,mttl_settings *);
 void mttl_settings_keep_energy(mttl_settings *,const mttl_settings *);
+int mttl_settings_pin_valid(const char *pin);
 #endif

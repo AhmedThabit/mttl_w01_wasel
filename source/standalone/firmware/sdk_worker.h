@@ -21,6 +21,10 @@ int mttl_sdk_scan_failed(void);
 void mttl_sdk_status_snapshot(mttl_worker_status *status);
 size_t mttl_sdk_device_json(char *,size_t,int settings);
 int mttl_sdk_config_reserve(const uint8_t *,size_t,int keep_password);
+/* Wasel local-API PIN: check (1 ok, 0 wrong, -1 locked for a minute), set ("" removes), is one set. */
+int mttl_sdk_pin_check(const char *given);
+int mttl_sdk_pin_set(const char *pin);
+int mttl_sdk_pin_set_now(void);
 void mttl_sdk_config_release(int accepted);
 int mttl_sdk_control_request(unsigned channel,unsigned on);
 void mttl_sdk_control_timing(uint32_t out[4]);

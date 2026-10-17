@@ -1,4 +1,14 @@
-**Wasel 2.0.14-w3** — based on upstream standalone 2.0.14.
+**Wasel 2.0.14-w4-rc1** — based on upstream standalone 2.0.14.
+
+New in w4:
+- Local PIN (4–8 digits) for the strip's write API: switching outlets, saving settings, Wi-Fi
+  and firmware upload need header `X-Wasel-Pin` once a PIN is set (`POST /api/pin`, body = new
+  PIN, empty = remove). Reading stays open. Five wrong PINs lock the API for 60 s. Not asked in
+  the setup access point (10 s hold), so a forgotten PIN can always be reset there. The device
+  web page asks for the PIN once per session. The PIN is stored in flash only (record 0x5C),
+  never in the settings body or any response; `/api/memory` reports `"pin":1` when one is set.
+
+**Wasel 2.0.14-w3**
 
 Tested on the strip (MTTL-W01, remote build): readings with all four outlets on, find the
 strip, encrypted remote control. The setup-hold lock on its own was not yet pressed by hand.

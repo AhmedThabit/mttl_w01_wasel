@@ -1,3 +1,8 @@
+/* Wasel: local PIN. Write requests carry X-Wasel-Pin; on 401 ask once and retry. */
+(function(){const f=window.fetch.bind(window),k='wasel.pin';
+window.fetch=async function(u,o){o=o||{};const w=o.method&&o.method!=='GET';
+const go=()=>{const h=new Headers(o.headers||{});let p='';try{p=sessionStorage.getItem(k)||'';}catch(_){}if(w&&p)h.set('X-Wasel-Pin',p);return f(u,Object.assign({},o,{headers:h}));};
+let r=await go();if(w&&r.status===401){const p=prompt('Strip PIN');if(p){try{sessionStorage.setItem(k,p);}catch(_){}r=await go();}}return r;};})();
 /* Device integration UI. No synthetic sensor values or simulated switching. */
 (function(){
   'use strict';
