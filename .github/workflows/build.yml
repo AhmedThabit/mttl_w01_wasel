@@ -54,6 +54,7 @@ jobs:
           done
           (cd /tmp/out && sha256sum *.fwr > SHA256SUMS && cat SHA256SUMS)
       - uses: actions/upload-artifact@v4
+        if: success()
         with: { name: wasel-firmware, path: /tmp/out }
       - name: Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -68,3 +69,12 @@ jobs:
           case "$T" in *-rc*) PRE=--prerelease;; *) PRE=;; esac   # -rc tags: test builds
           gh release create "$T" /tmp/out/*.fwr /tmp/out/SHA256SUMS /tmp/out/summary.txt --target "$GITHUB_SHA" $PRE \
             --title "Wasel $T" --notes-file RELEASE_NOTES.md
+      - name: Publish build logs to the ci-logs branch
+        if: always()
+        run: |
+          mkdir -p /tmp/logs && cp /tmp/out/*.log /tmp/out/summary.txt /tmp/logs/ 2>/dev/null || true
+          for f in /tmp/logs/build-*.log; do [ -f "$f" ] && tail -c 60000 "$f" > "$f.tail" && mv "$f.tail" "$f"; done
+          echo "${{ job.status }} $(git rev-parse --short HEAD)" > /tmp/logs/STATUS
+          git config user.name wasel-ci; git config user.email ci@users.noreply.github.com
+          git switch --orphan ci-logs-tmp && git rm -rq --cached . 2>/dev/null || true
+          rm -rf logs && cp -r /tmp/logs logs && git add logs && git commit -qm "build logs $(cat /tmp/logs/STATUS)" && git push -fq origin HEAD:ci-logs || true
