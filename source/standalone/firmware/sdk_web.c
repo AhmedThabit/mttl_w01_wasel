@@ -92,12 +92,22 @@ static void status_page(struct httpd_conn *c){
     size=snprintf(json,sizeof(json),"{\"state\":%lu,\"ip\":%lu,\"uptime_ms\":%lu,\"rssi\":%s,\"ssid_hex\":\"%s\",\"mac\":\"%s\",\"unix_ms\":%s,\"connected_unix_ms\":%s,\"meter_initialized\":%u,\"meter_reads\":%u,\"energy_reads\":%u,\"energy_counter_raw\":[%lu,%lu,%lu,%lu],\"energy_restore_pending\":%u,\"hardware_ready\":%s}",(unsigned long)status.state,(unsigned long)status.ip,(unsigned long)status.uptime_ms,rssi,hex,status.mac,time,connected,(unsigned)status.meter_initialized,(unsigned)status.meter_reads,(unsigned)status.energy_reads,(unsigned long)status.energy_raw[0],(unsigned long)status.energy_raw[1],(unsigned long)status.energy_raw[2],(unsigned long)status.energy_raw[3],(unsigned)status.energy_restore_pending,status.hardware_ready?"true":"false");}
     if(size<0||(size_t)size>=sizeof(json)){httpd_response_internal_server_error(c,0);httpd_conn_close(c);return;}send(c,json,size,"application/json");
 }
+#ifndef WASEL_BUILD
+#define WASEL_BUILD "dev"
+#endif
+#if QABES_REMOTE
+#define WASEL_VARIANT "remote"
+#else
+#define WASEL_VARIANT "ha"
+#endif
 static void memory_page(struct httpd_conn *c){
  mttl_worker_status status;int size;mttl_sdk_status_snapshot(&status);
  size=snprintf(json,sizeof(json),"{\"heap_free_bytes\":%lu,\"heap_min_free_bytes\":%lu,\"worker_observed_stack_descent_bytes\":%lu,\"stack_high_water_verified\":false"
 #if QABES_REMOTE
   ",\"qabes_aead\":%d"
 #endif
+  /* Wasel build: release tag and variant, so the app can tell the builds apart. */
+  ",\"wasel\":\"" WASEL_BUILD "\",\"variant\":\"" WASEL_VARIANT "\""
   "}",(unsigned long)status.heap_free_bytes,(unsigned long)status.heap_min_free_bytes,(unsigned long)status.worker_observed_stack_descent_bytes
 #if QABES_REMOTE
   ,qabes_aead_ready()

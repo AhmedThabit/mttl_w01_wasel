@@ -83,6 +83,8 @@ if args.standalone:
  sources.append(ROOT/'standalone/firmware/mqtt_wire.c')
  for name in ('ha_discovery','mqtt_engine','hardware_port','device_app','sdk_mqtt_socket'):
   sources.append(ROOT/'standalone/firmware'/ (name+'.c'))
+ if re.fullmatch(r'[0-9A-Za-z.\-]{1,24}',os.environ.get('WASEL_BUILD','')):
+  common += ['-DWASEL_BUILD="%s"'%os.environ['WASEL_BUILD']]
  if os.environ.get('QABES_REMOTE')=='1':
   common += ['-DQABES_REMOTE=1']
   sources += [ROOT/'standalone/firmware/qabes_aead_rom.c',ROOT/'standalone/firmware/qabes_remote.c']

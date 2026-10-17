@@ -37,7 +37,7 @@ void mttl_device_tick(mttl_device_app *d,const char *id,int network,uint32_t now
     /* Encrypted status: at once on outlet changes, on request (at most every 2 s)
      * and every 30 s otherwise. Retained, so the app sees the last one right away. */
     else{unsigned dirty=(d->control.known_mask&~d->mqtt_known)|((d->control.on_mask^d->mqtt_on)&d->control.known_mask);uint32_t age=now-d->publish_at;
-      if(dirty||!d->mqtt_all||(d->mqtt.status_wanted&&age>=2000)||age>=30000){if(publish_status(d,now)){d->publish_at=now;d->mqtt.status_wanted=0;d->mqtt_all=1;d->mqtt_known=d->control.known_mask;d->mqtt_on=d->control.on_mask;}}}
+      if(dirty||!d->mqtt_all||(d->mqtt.status_wanted&&age>=2000)||age>=30000){if(publish_status(d,now)){d->publish_at=now;d->mqtt.status_wanted=0;d->mqtt_all=1;d->mqtt_known=d->control.known_mask;d->mqtt_on=d->control.on_mask;d->mqtt_was_online=d->control.on_mask==15;}}}
 #else
     else{unsigned dirty=(d->control.known_mask&~d->mqtt_known)|((d->control.on_mask^d->mqtt_on)&d->control.known_mask);
       if(dirty||!d->mqtt_all||(uint32_t)(now-d->publish_at)>=200){publish_sample(d,id,now);d->publish_at=now;}}

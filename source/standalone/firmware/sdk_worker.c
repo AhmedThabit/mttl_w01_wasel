@@ -297,6 +297,7 @@ static void worker(void *p){
     mttl_sdk_meter_set_service(meter_network_service);
     memset(mac,0,sizeof(mac));if(wifi_get_mac_address(mac)==RTW_SUCCESS){for(k=0;mac[k]&&j<12;k++){char c=mac[k];if(c>='A'&&c<='F')c=(char)(c+32);if((c>='0'&&c<='9')||(c>='a'&&c<='f'))identity[j++]=c;}if(j!=12)identity[0]=0;}
     mttl_lifecycle_init(&life);mttl_provision(&life.network,clock_ms(0));
+    {unsigned fast_passes=0;
     for(;;){
         int scan_now=0,config_now;
         watchdog_worker_at=clock_ms(0);watchdog_worker_seen=1;
@@ -306,12 +307,15 @@ static void worker(void *p){
          * relay completion is pending. Second step drains the state packet
          * queued by the first instead of leaving it until the next full loop. */
         if(!device.control.fault&&!energy_barrier_state&&life.network.state==MTTL_NET_ONLINE&&device.mqtt.session.state==MTTL_MQ_ONLINE&&
-           (relay_busy||mttl_device_mqtt_pending(&device))){
+           (relay_busy||mttl_device_mqtt_pending(&device))&&fast_passes<50){
             mttl_device_tick(&device,identity,1,clock_ms(0),&mqtt_io);
             mttl_device_tick(&device,identity,1,clock_ms(0),&mqtt_io);
             publish_snapshots(clock_ms(0));
-            vTaskDelay(1);continue;
+            ++fast_passes;vTaskDelay(1);continue;
         }
+        /* Wasel: a confirmation that never drains must not starve the meter, the
+         * timers or the status snapshot: at most ~50 fast passes, then one full pass. */
+        fast_passes=0;
         {int provision=0;taskENTER_CRITICAL();if(provision_requested&&!relay_busy&&!energy_barrier_state&&!occupied&&!config_occupied){provision=1;}taskEXIT_CRITICAL();
          if(provision&&storage_begin()){int reset;
           if(!device.control.fault){device.settings.relay_known=device.control.known_mask;device.settings.relay_on=device.control.on_mask;}
@@ -402,6 +406,6 @@ static void worker(void *p){
         }
         taskENTER_CRITICAL();ap_ready=life.network.state==MTTL_NET_AP&&life.web_started;taskEXIT_CRITICAL();
         vTaskDelay(20/portTICK_RATE_MS+1);
-    }
+    }}
 }
 int mttl_sdk_worker_start(void){if(worker_started)return 1;if(xTaskCreate(worker,"mttl_network",1536,0,tskIDLE_PRIORITY+1,0)!=pdPASS)return 0;worker_started=1;return 1;}

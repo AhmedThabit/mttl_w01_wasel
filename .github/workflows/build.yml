@@ -40,6 +40,7 @@ jobs:
           set -o pipefail
           V=$(python -c "import json;print(json.load(open('mttl-source.json'))['version'])")
           mkdir -p /tmp/out
+          export WASEL_BUILD=$(tr -d ' \n' < ../WASEL_RELEASE | sed 's/^v//')
           for v in remote ha; do
             [ $v = remote ] && export QABES_REMOTE=1 || export QABES_REMOTE=0
             python build.py 2>&1 | tee /tmp/out/build-$v.log

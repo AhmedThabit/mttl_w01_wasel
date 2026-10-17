@@ -1,6 +1,13 @@
-**Wasel 2.0.14-w2** — based on upstream standalone 2.0.14.
+**Wasel 2.0.14-w3** — based on upstream standalone 2.0.14.
 
-New in w2:
+Fixed in w3:
+- Remote build: with all four outlets on, readings and status stopped updating (the worker
+  waited forever on a confirmation flag the encrypted status never cleared). Fixed, and the
+  fast path that waits for MQTT confirmations is now bounded so it can never starve the meter.
+- `/api/memory` reports `"wasel"` (release) and `"variant"` (`remote` or `ha`), so apps can
+  tell Wasel builds from upstream 2.0.14.
+
+From w2:
 - LED options: night mode (all indicator LEDs dark, manual or on a nightly window),
   "only on LEDs", and *find the strip* (all outlet LEDs blink for about 5 s).
 - Child lock: with every button locked, the 10 s setup hold is refused too, except in the

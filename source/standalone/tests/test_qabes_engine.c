@@ -48,6 +48,13 @@ int main(void){
             CHECK(qabes_open(frame,fn,key,QABES_UP,t0+3000,1,&last,&plain,&pn));CHECK(plain[0]==0x80);CHECK(pn>10&&!memcmp(plain+5,"{\"name\":",8));
             printf("status %u bytes: %.*s\n",(unsigned)pn,(int)(pn-5>120?120:pn-5),plain+5);found++;}}}
      CHECK(found==1);}
+    /* all four outlets on: once the status is out, nothing stays pending (the worker's fast
+     * path must drain, or meter readings and the status snapshot stop) */
+    app.control.known_mask=15;app.control.on_mask=15;
+    for(i=0;i<20;i++){mttl_device_tick(&app,"2cfdb382d352",1,now,&io);now+=50;}
+    CHECK(!mttl_device_mqtt_pending(&app));
+    app.control.on_mask=7;for(i=0;i<20;i++){mttl_device_tick(&app,"2cfdb382d352",1,now,&io);now+=50;}
+    CHECK(!mttl_device_mqtt_pending(&app));
     /* encrypted command: outlet 3 (index 2) ON */
     {uint8_t f[64],pkt[96];uint64_t down=0;size_t n,p=0;const char *t="qabes/0123456789abcdef01234567/d";f[13]=1;f[14]=2;f[15]=1;
      n=qabes_seal(f,3,key,QABES_DOWN,t0+5000,&down);pkt[p++]=0x30;pkt[p++]=(uint8_t)(2+strlen(t)+n);pkt[p++]=0;pkt[p++]=(uint8_t)strlen(t);memcpy(pkt+p,t,strlen(t));p+=strlen(t);memcpy(pkt+p,f,n);p+=n;
