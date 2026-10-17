@@ -9,5 +9,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data,size_t size){
   (void)qabes_command(plain,pn,&ch,&on);
  }
  (void)qabes_command(data,size,&ch,&on);
+ {char host[254];uint16_t port;if(qabes_move(data,size,host,&port)&&(strlen(host)!=size-3||!port))__builtin_trap();}
  (void)qabes_key((const char *)(size?"0":""),key);
  return 0;}

@@ -19,6 +19,7 @@ int mttl_device_configure(mttl_device_app *d,const uint8_t *body,size_t size,con
     d->settings=candidate;d->persistent=io!=0;result=1;
 done:for(i=0;i<sizeof(candidate);i++)p[i]=0;return result;
 }
+int mttl_device_move(void *context,const char *host,uint16_t port){mttl_device_app *d=context;return d&&d->move_request?d->move_request(host,port):0;}
 int mttl_device_command(void *context,uint8_t channel,uint8_t on){mttl_device_app *d=context;if(!d||!d->hardware.verified||!d->hardware.write)return 0;if(d->relay_request)return d->relay_request(channel,on);return mttl_request(&d->control,channel,on);}
 void mttl_device_button(mttl_device_app *d,unsigned button,int down,uint32_t now){
     int event;if(button>4)return;if(!button){event=mttl_button_edge(&d->main_button,down!=0,now);if(event==2)d->provision_requested=1;else if(event==1&&d->control.known_mask==15)mttl_device_command(d,MTTL_ALL,d->control.on_mask!=15);}
@@ -31,7 +32,7 @@ void mttl_device_tick(mttl_device_app *d,const char *id,int network,uint32_t now
 #if QABES_REMOTE
     d->mqtt.time_valid=(uint8_t)mttl_time_now(&d->ntp.time,now,&d->mqtt.unix_ms);
 #endif
-    if(io){mttl_mqtt_io bound=*io;bound.command=mttl_device_command;bound.command_context=d;mttl_mqtt_engine_step(&d->mqtt,&d->settings,id,network,d->revision,now,&bound);}
+    if(io){mttl_mqtt_io bound=*io;bound.command=mttl_device_command;bound.move=mttl_device_move;bound.command_context=d;mttl_mqtt_engine_step(&d->mqtt,&d->settings,id,network,d->revision,now,&bound);}
     if(d->mqtt.session.state!=MTTL_MQ_ONLINE||d->mqtt.rediscover){d->mqtt_known=d->mqtt_all=d->mqtt_was_online=0;}
 #if QABES_REMOTE
     /* Encrypted status: at once on outlet changes, on request (at most every 2 s)

@@ -17,6 +17,8 @@ typedef struct {
     int (*send)(void *,const uint8_t *,size_t);
     int (*receive)(void *,uint8_t *,size_t);
     int (*command)(void *,uint8_t,uint8_t);
+    /* Optional: move to another broker (host, port); same context as command. */
+    int (*move)(void *,const char *,uint16_t);
     void *command_context;
 } mttl_mqtt_io;
 typedef struct {

@@ -5,7 +5,8 @@
  * nonce = direction(1: up, 2: down) | 0 0 0 | stamp (u64 LE, ms since epoch, strictly
  * increasing per direction). AAD = the 13 header bytes. The key is the 64-hex-char MQTT
  * password, which is never sent to the broker in this mode.
- * Down (app -> strip, topic <base>/d): [1, channel 0..3 | 4 all, on], [2] (send status) or [3] (blink to find).
+ * Down (app -> strip, topic <base>/d): [1, channel 0..3 | 4 all, on], [2] (send status), [3] (blink to find)
+ * or [4, port u16 BE, host...] (move to another broker; saved like a local config change).
  * Up (strip -> app, topic <base>/u, retained): [0x80, uptime ms u32 LE, device JSON]. */
 #include <stddef.h>
 #include <stdint.h>
@@ -17,6 +18,7 @@
 #define QABES_OP_CONTROL 1
 #define QABES_OP_REFRESH 2
 #define QABES_OP_FIND 3
+#define QABES_OP_MOVE 4
 #define QABES_OP_STATUS 0x80
 /* 1 when [hex] is exactly 64 hex digits; writes the 32-byte key. */
 int qabes_key(const char *hex,uint8_t key[32]);
@@ -35,6 +37,8 @@ void qabes_auth_key(const uint8_t key[32],uint8_t auth[32]);
 void qabes_broker_token(const uint8_t key[32],uint64_t unix_ms,char out[33]);
 /* The broker password: the token when [user] is set, the clock is valid and [hex] is a key; else "". */
 void qabes_login(const char *user,const char *hex,int time_valid,uint64_t unix_ms,char pass[33]);
+/* A move command: host is 1..253 of [a-z0-9.-], port 1..65535. Writes host (NUL-ended) and port. */
+int qabes_move(const uint8_t *plain,size_t size,char host[254],uint16_t *port);
 /* Parses a down command. 1 control (channel/on set), 2 refresh, 3 find, 0 invalid. */
 int qabes_command(const uint8_t *plain,size_t size,uint8_t *channel,uint8_t *on);
 #endif

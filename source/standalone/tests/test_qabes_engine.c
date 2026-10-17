@@ -9,7 +9,8 @@ static const char *HEX="000102030405060708090a0b0c0d0e0f101112131415161718191a1b
 static uint8_t key[32];
 typedef struct{uint8_t out[4096];size_t out_n;uint8_t in[600];size_t in_n;char host[64];int opened;} broker;
 static broker b;
-static int commands,last_channel,last_on;
+static int commands,last_channel,last_on,moves;static char moved_host[254];static unsigned moved_port;
+static int move(const char *h,uint16_t port){moves++;strcpy(moved_host,h);moved_port=port;return 1;}
 static int hw_write(void *p,const uint8_t *d,size_t n){(void)p;(void)d;(void)n;return 1;}
 static int relay(unsigned ch,unsigned on){commands++;last_channel=(int)ch;last_on=(int)on;return 1;}
 static int o(void *p,const char *h,uint16_t port){(void)p;snprintf(b.host,sizeof(b.host),"%s:%u",h,port);b.opened++;return 1;}
@@ -22,7 +23,7 @@ static size_t packets(size_t at[],size_t len[],uint8_t type[],size_t max){size_t
 int main(void){
     static mttl_device_app app;mttl_mqtt_io io={0};uint32_t now=1000;unsigned i;size_t at[64],len[64],k;uint8_t type[64];uint64_t t0=1792177433298ULL;
     qabes_key(HEX,key);
-    mttl_device_init(&app,1767225600ULL);app.relay_request=relay;app.hardware.verified=1;app.hardware.write=hw_write;
+    mttl_device_init(&app,1767225600ULL);app.relay_request=relay;app.move_request=move;app.hardware.verified=1;app.hardware.write=hw_write;
     strcpy(app.settings.broker,"broker.emqx.io");app.settings.port=1883;strcpy(app.settings.topic,"qabes/0123456789abcdef01234567");
     strcpy(app.settings.mqtt_password,HEX);app.settings.mqtt_enabled=1;
     CHECK(mttl_settings_valid(&app.settings));
@@ -65,6 +66,15 @@ int main(void){
      /* a frame sealed with another key is ignored */
      {uint8_t other[32];memcpy(other,key,32);other[3]^=9;f[13]=1;f[14]=0;f[15]=0;n=qabes_seal(f,3,other,QABES_DOWN,t0+6000,&down);memcpy(pkt+4+strlen(t),f,n);
       push(pkt,p);for(i=0;i<5;i++){mttl_device_tick(&app,"2cfdb382d352",1,now,&io);now+=50;}CHECK(commands==1);}
+     /* move to another broker: [4, port BE, host] */
+     {const char *h="b.wasel.onmeters.com";size_t hl=strlen(h);f[13]=4;f[14]=0x07;f[15]=0x5b;memcpy(f+16,h,hl);
+      n=qabes_seal(f,3+hl,key,QABES_DOWN,t0+7000,&down);p=0;pkt[p++]=0x30;pkt[p++]=(uint8_t)(2+strlen(t)+n);pkt[p++]=0;pkt[p++]=(uint8_t)strlen(t);memcpy(pkt+p,t,strlen(t));p+=strlen(t);memcpy(pkt+p,f,n);p+=n;
+      push(pkt,p);for(i=0;i<5;i++){mttl_device_tick(&app,"2cfdb382d352",1,now,&io);now+=50;}
+      CHECK(moves==1&&!strcmp(moved_host,h)&&moved_port==1883);CHECK(commands==1);
+      /* a host with characters a DNS name never has is refused */
+      f[13]=4;f[14]=0x07;f[15]=0x5b;memcpy(f+16,"b.Evil/x",8);n=qabes_seal(f,3+8,key,QABES_DOWN,t0+8000,&down);
+      p=0;pkt[p++]=0x30;pkt[p++]=(uint8_t)(2+strlen(t)+n);pkt[p++]=0;pkt[p++]=(uint8_t)strlen(t);memcpy(pkt+p,t,strlen(t));p+=strlen(t);memcpy(pkt+p,f,n);p+=n;
+      push(pkt,p);for(i=0;i<5;i++){mttl_device_tick(&app,"2cfdb382d352",1,now,&io);now+=50;}CHECK(moves==1);}
      CHECK(app.mqtt.session.state==MTTL_MQ_ONLINE);}
     /* a non-hex password disables the channel */
     {static mttl_device_app q;mttl_device_init(&q,1767225600ULL);q.settings=app.settings;strcpy(q.settings.mqtt_password,"secret");b.opened=0;

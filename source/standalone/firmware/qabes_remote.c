@@ -30,6 +30,11 @@ int qabes_command(const uint8_t *p,size_t n,uint8_t *channel,uint8_t *on){
     return 0;
 }
 
+int qabes_move(const uint8_t *p,size_t n,char host[254],uint16_t *port){
+    size_t i;if(n<4||n>3+253||p[0]!=QABES_OP_MOVE||!(p[1]|p[2]))return 0;
+    for(i=3;i<n;i++){uint8_t c=p[i];if(!((c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='.'||c=='-'))return 0;host[i-3]=(char)c;}
+    host[n-3]=0;*port=(uint16_t)(p[1]<<8|p[2]);return 1;
+}
 /* One ChaCha20 block over zeros: k = key, nonce = tag | v (u64 LE at byte 4). */
 static void prf(uint8_t *out,size_t n,const uint8_t key[32],const char *tag,uint64_t v){uint8_t c[12];unsigned i;memset(c,0,12);memcpy(c,tag,4);for(i=0;i<8&&v;i++,v>>=8)c[4+i]=(uint8_t)v;memset(out,0,n);qabes_chacha20(out,out,n,key,c,0);}
 void qabes_auth_key(const uint8_t key[32],uint8_t auth[32]){prf(auth,32,key,"WAUT",'H');}

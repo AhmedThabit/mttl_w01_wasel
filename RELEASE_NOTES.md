@@ -1,4 +1,4 @@
-**Wasel 2.0.14-w5-rc1** — based on upstream standalone 2.0.14. Includes everything in w4.
+**Wasel 2.0.14-w5-rc2** — based on upstream standalone 2.0.14. Includes everything in w4.
 
 New in w5 (remote build), for a Wasel cloud broker:
 - Broker login without giving away the frame key: when an MQTT user name is set, the strip sends
@@ -7,6 +7,9 @@ New in w5 (remote build), for a Wasel cloud broker:
   cannot read or forge its frames. With no user name nothing changes (public brokers as before).
 - Backup broker: a broker name starting with `a.` falls over to the same name with `b.` after
   three failed tries, and back the same way. Other names are used as they are.
+- Remote move: an encrypted command `[4, port, host]` from the owner's app saves a new broker
+  (like a local settings change), so strips can be moved to another server or domain without
+  being set up again. Host names are limited to lowercase letters, digits, `.` and `-`.
 - About 1.4 KB more free RAM: the SHA-256 used to check firmware updates uses its compact form
   (same results).
 

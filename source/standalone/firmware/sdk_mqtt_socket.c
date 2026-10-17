@@ -35,4 +35,4 @@ static int open_socket(void *context,const char *host,uint16_t port){mttl_sdk_mq
 static int transmit(void *context,const uint8_t *data,size_t size){mttl_sdk_mqtt_socket *s=context;int rc;if(s->socket<0||!s->connected)return -1;rc=ready(s->socket,1);if(rc<=0)return rc;rc=send(s->socket,data,size,0);return rc<0&&socket_error(s->socket)==EWOULDBLOCK?0:rc;}
 static int receive(void *context,uint8_t *data,size_t size){mttl_sdk_mqtt_socket *s=context;int rc;if(s->socket<0||!s->connected)return -1;rc=ready(s->socket,0);if(rc<=0)return rc;rc=recv(s->socket,data,size,0);if(rc==0)return -1;return rc<0&&socket_error(s->socket)==EWOULDBLOCK?0:rc;}
 void mttl_sdk_mqtt_socket_init(mttl_sdk_mqtt_socket *s){s->socket=-1;s->connected=0;}
-void mttl_sdk_mqtt_socket_io(mttl_sdk_mqtt_socket *s,mttl_mqtt_io *io){io->context=s;io->open=open_socket;io->close=drop;io->send=transmit;io->receive=receive;io->command=0;io->command_context=0;}
+void mttl_sdk_mqtt_socket_io(mttl_sdk_mqtt_socket *s,mttl_mqtt_io *io){io->context=s;io->open=open_socket;io->close=drop;io->send=transmit;io->receive=receive;io->command=0;io->move=0;io->command_context=0;}

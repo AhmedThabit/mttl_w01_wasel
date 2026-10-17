@@ -11,6 +11,7 @@ typedef struct {
     uint32_t revision;uint8_t persistent,provision_requested;
     uint32_t publish_at;uint8_t publish_index;
     int (*relay_request)(unsigned,unsigned); /* Optional external relay owner. */
+    int (*move_request)(const char *,uint16_t); /* Optional: saves a new broker (remote move). */
     uint8_t mqtt_known,mqtt_on,mqtt_all,mqtt_was_online;
     mttl_protection_state protection;
     mttl_timer_state timers;
@@ -28,6 +29,7 @@ void mttl_device_init(mttl_device_app *,uint64_t reference_time);
 int mttl_device_load(mttl_device_app *,const mttl_settings_io *,mttl_config_workspace *);
 int mttl_device_configure(mttl_device_app *,const uint8_t *,size_t,const mttl_settings_io *,mttl_config_workspace *);
 int mttl_device_command(void *,uint8_t,uint8_t);
+int mttl_device_move(void *,const char *,uint16_t);
 void mttl_device_button(mttl_device_app *,unsigned button,int down,uint32_t now);
 void mttl_device_tick(mttl_device_app *,const char *id,int network,uint32_t now,const mttl_mqtt_io *);
 /* JSON projection includes no password. Raw sample contract:
