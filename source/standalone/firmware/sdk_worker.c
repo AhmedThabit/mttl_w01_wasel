@@ -312,8 +312,8 @@ static void worker(void *p){
     relay_control=device.control;relay_port=device.hardware;relay_known=relay_control.known_mask;relay_on=relay_control.on_mask;relay_desired=relay_on;
     relay_wake=xSemaphoreCreateBinary();
     if(relay_wake&&xTaskCreate(relay_task,"mttl_relay",384,0,tskIDLE_PRIORITY+2,0)==pdPASS)device.relay_request=mttl_sdk_control_request;
-    device.move_request=broker_move;
     else{if(relay_wake)vSemaphoreDelete(relay_wake);relay_wake=0;device.hardware.verified=0;}
+    device.move_request=broker_move;
     if(device.hardware.verified){static const uint8_t pins[5]={3,5,0x22,2,1};gpio_init(&setup_led,(PinName)0x23);gpio_mode(&setup_led,PullNone);gpio_write(&setup_led,0);gpio_dir(&setup_led,PIN_OUTPUT);for(k=0;k<5;k++){gpio_init(&button_pins[k],(PinName)pins[k]);gpio_mode(&button_pins[k],PullUp);gpio_dir(&button_pins[k],PIN_INPUT);mttl_button_input_init(&button_inputs[k],30);}buttons_ready=1;}
     mttl_sdk_energy_init(&device.settings,clock_ms(0));
     mttl_sdk_meter_set_service(meter_network_service);
