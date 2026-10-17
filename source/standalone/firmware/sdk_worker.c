@@ -335,7 +335,10 @@ static void worker(void *p){
         {int provision=0;taskENTER_CRITICAL();if(provision_requested&&!relay_busy&&!energy_barrier_state&&!occupied&&!config_occupied){provision=1;}taskEXIT_CRITICAL();
          if(provision&&storage_begin()){int reset;
           if(!device.control.fault){device.settings.relay_known=device.control.known_mask;device.settings.relay_on=device.control.on_mask;}
-          reset=mttl_sdk_energy_reset(&device.settings,&device.samples,clock_ms(0));storage_end();
+          /* Wasel: the 10 s hold (someone at the strip) also clears the local PIN. */
+          {char pin[9];memcpy(pin,device.settings.pin,sizeof(pin));memset(device.settings.pin,0,sizeof(pin));
+           reset=mttl_sdk_energy_reset(&device.settings,&device.samples,clock_ms(0));if(!reset)memcpy(device.settings.pin,pin,sizeof(pin));}
+          storage_end();
           if(reset){taskENTER_CRITICAL();provision_requested=0;taskEXIT_CRITICAL();manual_setup=1;mttl_provision(&life.network,clock_ms(0));}
          }}
         {uint8_t state;taskENTER_CRITICAL();state=energy_barrier_state;taskEXIT_CRITICAL();
