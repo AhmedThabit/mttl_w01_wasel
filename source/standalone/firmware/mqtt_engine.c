@@ -46,7 +46,7 @@ void mttl_mqtt_engine_step(mttl_mqtt_engine *e,const mttl_settings *s,const char
     }
 #if QABES_REMOTE
     /* payload[] is free until the session is up: it holds the backup host name. */
-    {const char *host=s->broker;if(e->alt&&s->broker[0]=='a'&&s->broker[1]=='.'&&strlen(s->broker)<sizeof(payload)){strcpy(payload,s->broker);payload[0]='b';host=payload;}
+    {const char *host=s->broker;if(e->alt&&s->broker[0]=='a'&&s->broker[1]=='.'){memcpy(payload,s->broker,sizeof(s->broker));payload[0]='b';host=payload;}
 #else
     {const char *host=s->broker;
 #endif
@@ -54,10 +54,9 @@ void mttl_mqtt_engine_step(mttl_mqtt_engine *e,const mttl_settings *s,const char
 #if QABES_REMOTE
         /* The password field holds the frame key: never send it to the broker. With a user
          * name set (Wasel cloud) the password is a one-minute token derived from it. */
-        {char pass[33];uint8_t key[32];pass[0]=0;
-         if(s->mqtt_user[0]&&e->time_valid&&qabes_key(s->mqtt_password,key))qabes_broker_token(key,e->unix_ms,pass);memset(key,0,sizeof(key));
+        {char pass[33];qabes_login(s->mqtt_user,s->mqtt_password,e->time_valid,e->unix_ms,pass);
          snprintf(client,sizeof(client),"wasel_%s",id);snprintf(topic,sizeof(topic),"%s/availability",base);
-         if(!queue(e,mttl_mq_connect_packet(e->tx,512,client,topic,s->mqtt_user,pass,30),now)){memset(pass,0,sizeof(pass));failed(e,now);return;}memset(pass,0,sizeof(pass));e->phase=1;}}
+         if(!queue(e,mttl_mq_connect_packet(e->tx,512,client,topic,s->mqtt_user,pass,30),now)){failed(e,now);return;}e->phase=1;}}
 #else
         snprintf(client,sizeof(client),"mttl2_%s",id);snprintf(topic,sizeof(topic),"%s/availability",base);
         if(!queue(e,mttl_mq_connect_packet(e->tx,512,client,topic,s->mqtt_user,s->mqtt_password,30),now)){failed(e,now);return;}e->phase=1;}

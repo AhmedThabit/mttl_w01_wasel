@@ -30,10 +30,13 @@ int qabes_command(const uint8_t *p,size_t n,uint8_t *channel,uint8_t *on){
     return 0;
 }
 
-void qabes_auth_key(const uint8_t key[32],uint8_t auth[32]){uint8_t n[12];memset(n,0,12);memcpy(n,"WAUTH",5);memset(auth,0,32);qabes_chacha20(auth,auth,32,key,n,0);}
+/* One ChaCha20 block over zeros: k = key, nonce = tag | v (u64 LE at byte 4). */
+static void prf(uint8_t *out,size_t n,const uint8_t key[32],const char *tag,uint64_t v){uint8_t c[12];unsigned i;memset(c,0,12);memcpy(c,tag,4);for(i=0;i<8&&v;i++,v>>=8)c[4+i]=(uint8_t)v;memset(out,0,n);qabes_chacha20(out,out,n,key,c,0);}
+void qabes_auth_key(const uint8_t key[32],uint8_t auth[32]){prf(auth,32,key,"WAUT",'H');}
+void qabes_login(const char *user,const char *hex,int time_valid,uint64_t unix_ms,char pass[33]){
+    uint8_t key[32];pass[0]=0;if(user[0]&&time_valid&&qabes_key(hex,key))qabes_broker_token(key,unix_ms,pass);memset(key,0,32);}
 void qabes_broker_token(const uint8_t key[32],uint64_t unix_ms,char out[33]){
-    static const char d[]="0123456789abcdef";uint8_t a[32],n[12],t[16];uint64_t m=unix_ms/60000u;unsigned i;
-    qabes_auth_key(key,a);memset(n,0,12);memcpy(n,"WTOK",4);for(i=0;i<8;i++)n[4+i]=(uint8_t)(m>>(8*i));
-    memset(t,0,16);qabes_chacha20(t,t,16,a,n,0);
-    for(i=0;i<16;i++){out[2*i]=d[t[i]>>4];out[2*i+1]=d[t[i]&15];}out[32]=0;memset(a,0,32);
+    uint8_t a[32],t[16];unsigned i,x;
+    qabes_auth_key(key,a);prf(t,16,a,"WTOK",unix_ms/60000u);memset(a,0,32);
+    for(i=0;i<32;i++){x=(t[i/2]>>(i&1?0:4))&15;out[i]=(char)(x<10?'0'+x:'a'-10+x);}out[32]=0;
 }

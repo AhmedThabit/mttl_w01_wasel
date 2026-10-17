@@ -33,6 +33,8 @@ int qabes_open(uint8_t *frame,size_t size,const uint8_t key[32],unsigned directi
  * minute = unix_ms / 60000. 32 lowercase hex digits + NUL. */
 void qabes_auth_key(const uint8_t key[32],uint8_t auth[32]);
 void qabes_broker_token(const uint8_t key[32],uint64_t unix_ms,char out[33]);
+/* The broker password: the token when [user] is set, the clock is valid and [hex] is a key; else "". */
+void qabes_login(const char *user,const char *hex,int time_valid,uint64_t unix_ms,char pass[33]);
 /* Parses a down command. 1 control (channel/on set), 2 refresh, 3 find, 0 invalid. */
 int qabes_command(const uint8_t *plain,size_t size,uint8_t *channel,uint8_t *on);
 #endif

@@ -7,6 +7,8 @@ New in w5 (remote build), for a Wasel cloud broker:
   cannot read or forge its frames. With no user name nothing changes (public brokers as before).
 - Backup broker: a broker name starting with `a.` falls over to the same name with `b.` after
   three failed tries, and back the same way. Other names are used as they are.
+- About 1.4 KB more free RAM: the SHA-256 used to check firmware updates uses its compact form
+  (same results).
 
 **Wasel 2.0.14-w4-rc3** — based on upstream standalone 2.0.14.
 
