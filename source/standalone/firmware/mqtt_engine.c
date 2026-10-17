@@ -39,16 +39,30 @@ void mttl_mqtt_engine_step(mttl_mqtt_engine *e,const mttl_settings *s,const char
     mttl_mq_update(&e->session,network,s->mqtt_enabled||(!e->cleanup_done&&s->broker[0]),revision,now);action=mttl_mq_step(&e->session,now);
     if(action==MTTL_MQ_CLOSE){rc=io->close(io->context);if(rc==1){mttl_mq_stopped(&e->session,e->session.generation,now);clear_tx(e);mttl_mq_rx_reset(&e->rx);e->phase=e->ping_wait=e->rediscover=0;}return;}
     if(e->session.state==MTTL_MQ_OFF||e->session.state==MTTL_MQ_BACKOFF||e->session.state==MTTL_MQ_STOPPING||e->session.state==MTTL_MQ_FAULT)return;
-    if(action==MTTL_MQ_CONNECT){e->phase=0;e->entity=0;clear_tx(e);mttl_mq_rx_reset(&e->rx);}
-    if(e->session.state==MTTL_MQ_CONNECTING&&!e->phase){rc=io->open(io->context,s->broker,s->port);if(rc<0){failed(e,now);return;}if(!rc)return;
+    if(action==MTTL_MQ_CONNECT){e->phase=0;e->entity=0;clear_tx(e);mttl_mq_rx_reset(&e->rx);
 #if QABES_REMOTE
-        /* The password field holds the frame key: never send it to the broker. */
-        snprintf(client,sizeof(client),"wasel_%s",id);snprintf(topic,sizeof(topic),"%s/availability",base);
-        if(!queue(e,mttl_mq_connect_packet(e->tx,512,client,topic,s->mqtt_user,"",30),now)){failed(e,now);return;}e->phase=1;}
+        if(++e->streak>3){e->alt^=1;e->streak=1;}
+#endif
+    }
+#if QABES_REMOTE
+    /* payload[] is free until the session is up: it holds the backup host name. */
+    {const char *host=s->broker;if(e->alt&&s->broker[0]=='a'&&s->broker[1]=='.'&&strlen(s->broker)<sizeof(payload)){strcpy(payload,s->broker);payload[0]='b';host=payload;}
+#else
+    {const char *host=s->broker;
+#endif
+    if(e->session.state==MTTL_MQ_CONNECTING&&!e->phase){rc=io->open(io->context,host,s->port);if(rc<0){failed(e,now);return;}if(!rc)return;
+#if QABES_REMOTE
+        /* The password field holds the frame key: never send it to the broker. With a user
+         * name set (Wasel cloud) the password is a one-minute token derived from it. */
+        {char pass[33];uint8_t key[32];pass[0]=0;
+         if(s->mqtt_user[0]&&e->time_valid&&qabes_key(s->mqtt_password,key))qabes_broker_token(key,e->unix_ms,pass);memset(key,0,sizeof(key));
+         snprintf(client,sizeof(client),"wasel_%s",id);snprintf(topic,sizeof(topic),"%s/availability",base);
+         if(!queue(e,mttl_mq_connect_packet(e->tx,512,client,topic,s->mqtt_user,pass,30),now)){memset(pass,0,sizeof(pass));failed(e,now);return;}memset(pass,0,sizeof(pass));e->phase=1;}}
 #else
         snprintf(client,sizeof(client),"mttl2_%s",id);snprintf(topic,sizeof(topic),"%s/availability",base);
         if(!queue(e,mttl_mq_connect_packet(e->tx,512,client,topic,s->mqtt_user,s->mqtt_password,30),now)){failed(e,now);return;}e->phase=1;}
 #endif
+    }
     /* Same owner also performs synchronous NOR checkpoints. Queue age is
      * not proof of a stalled socket; allow that bounded scheduling gap. */
 #if !QABES_REMOTE
@@ -103,6 +117,10 @@ void mttl_mqtt_engine_step(mttl_mqtt_engine *e,const mttl_settings *s,const char
         if(e->entity<QABES_ENTITIES){n=QABES_DISCOVERY(s,id,e->entity,topic,sizeof(topic),payload,sizeof(payload));if(!n||!queue(e,mttl_mq_publish_packet(e->tx,sizeof(e->tx),topic,(uint8_t *)payload,n,1),now)){failed(e,now);return;}++e->entity;e->phase=6;}
         else{snprintf(topic,sizeof(topic),"%s/availability",base);if(!queue(e,mttl_mq_publish_packet(e->tx,512,topic,(const uint8_t *)"online",6,1),now)){failed(e,now);return;}e->phase=8;e->rediscover=0;}return;}
     if(e->phase==7){e->phase=6;return;}
-    if(e->phase==8&&!e->tx_size){if(e->session.state==MTTL_MQ_SYNCING&&!mttl_mq_ready(&e->session,e->session.generation,now)){failed(e,now);return;}e->phase=9;}
+    if(e->phase==8&&!e->tx_size){if(e->session.state==MTTL_MQ_SYNCING&&!mttl_mq_ready(&e->session,e->session.generation,now)){failed(e,now);return;}e->phase=9;
+#if QABES_REMOTE
+        e->streak=0;
+#endif
+    }
     if(e->session.state==MTTL_MQ_ONLINE){if(e->ping_wait&&!mttl_remaining(e->ping_at,now,10000)){failed(e,now);return;}if(!e->tx_size&&!e->ping_wait&&!mttl_remaining(e->last_tx,now,20000)){e->tx[0]=0xc0;e->tx[1]=0;queue(e,2,now);e->ping_wait=1;e->ping_at=now;}}
 }

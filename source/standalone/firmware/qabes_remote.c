@@ -29,3 +29,11 @@ int qabes_command(const uint8_t *p,size_t n,uint8_t *channel,uint8_t *on){
     if(n==1&&p[0]==QABES_OP_FIND){*channel=5;*on=1;return 3;}
     return 0;
 }
+
+void qabes_auth_key(const uint8_t key[32],uint8_t auth[32]){uint8_t n[12];memset(n,0,12);memcpy(n,"WAUTH",5);memset(auth,0,32);qabes_chacha20(auth,auth,32,key,n,0);}
+void qabes_broker_token(const uint8_t key[32],uint64_t unix_ms,char out[33]){
+    static const char d[]="0123456789abcdef";uint8_t a[32],n[12],t[16];uint64_t m=unix_ms/60000u;unsigned i;
+    qabes_auth_key(key,a);memset(n,0,12);memcpy(n,"WTOK",4);for(i=0;i<8;i++)n[4+i]=(uint8_t)(m>>(8*i));
+    memset(t,0,16);qabes_chacha20(t,t,16,a,n,0);
+    for(i=0;i<16;i++){out[2*i]=d[t[i]>>4];out[2*i+1]=d[t[i]&15];}out[32]=0;memset(a,0,32);
+}

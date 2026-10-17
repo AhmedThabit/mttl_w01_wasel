@@ -1,3 +1,13 @@
+**Wasel 2.0.14-w5-rc1** — based on upstream standalone 2.0.14. Includes everything in w4.
+
+New in w5 (remote build), for a Wasel cloud broker:
+- Broker login without giving away the frame key: when an MQTT user name is set, the strip sends
+  a one-minute token as password, `ChaCha20(ChaCha20(key, "WAUTH"), "WTOK" | minute)` (see
+  `qabes_remote.h`). The cloud stores only the derived auth key, so it can check the strip but
+  cannot read or forge its frames. With no user name nothing changes (public brokers as before).
+- Backup broker: a broker name starting with `a.` falls over to the same name with `b.` after
+  three failed tries, and back the same way. Other names are used as they are.
+
 **Wasel 2.0.14-w4-rc3** — based on upstream standalone 2.0.14.
 
 New in w4:

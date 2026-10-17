@@ -27,6 +27,8 @@ typedef struct {
     /* Strip clock for frame stamps (set by the owner before each step) and the
      * last stamps seen/sent; status_wanted asks the owner to publish soon. */
     uint64_t unix_ms,stamp_up,stamp_down;uint8_t time_valid,status_wanted;
+    /* Backup broker: "a.<domain>" falls over to "b.<domain>" (and back) after 3 failed tries. */
+    uint8_t alt,streak;
 #endif
 } mttl_mqtt_engine;
 void mttl_mqtt_engine_init(mttl_mqtt_engine *);

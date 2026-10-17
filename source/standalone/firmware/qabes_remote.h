@@ -27,6 +27,12 @@ size_t qabes_seal(uint8_t *frame,size_t plain,const uint8_t key[32],unsigned dir
  * when [time_valid], stamps more than QABES_MAX_SKEW_MS away from now; without a valid
  * clock nothing is accepted. On success *plain points into frame. */
 int qabes_open(uint8_t *frame,size_t size,const uint8_t key[32],unsigned direction,uint64_t now_ms,int time_valid,uint64_t *last,uint8_t **plain,size_t *plain_size);
+/* Broker login for a Wasel cloud broker, so the frame key itself never leaves the strip:
+ * auth = ChaCha20(key, nonce "WAUTH"0..0) over 32 zero bytes (what the cloud stores),
+ * token = hex of ChaCha20(auth, nonce "WTOK" | minute u64 LE) over 16 zero bytes, where
+ * minute = unix_ms / 60000. 32 lowercase hex digits + NUL. */
+void qabes_auth_key(const uint8_t key[32],uint8_t auth[32]);
+void qabes_broker_token(const uint8_t key[32],uint64_t unix_ms,char out[33]);
 /* Parses a down command. 1 control (channel/on set), 2 refresh, 3 find, 0 invalid. */
 int qabes_command(const uint8_t *plain,size_t size,uint8_t *channel,uint8_t *on);
 #endif
