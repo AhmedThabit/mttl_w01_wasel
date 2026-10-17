@@ -125,12 +125,12 @@ static void memory_page(struct httpd_conn *c){
   ",\"qabes_aead\":%d"
 #endif
   /* Wasel build: release tag and variant, so the app can tell the builds apart. */
-  ",\"wasel\":\"" WASEL_BUILD "\",\"variant\":\"" WASEL_VARIANT "\",\"pin\":%d"
+  ",\"wasel\":\"" WASEL_BUILD "\",\"variant\":\"" WASEL_VARIANT "\",\"pin\":%d,\"worker_max_gap_ms\":%lu"
   "}",(unsigned long)status.heap_free_bytes,(unsigned long)status.heap_min_free_bytes,(unsigned long)status.worker_observed_stack_descent_bytes
 #if QABES_REMOTE
   ,qabes_aead_ready()
 #endif
-  ,mttl_sdk_pin_set_now());
+  ,mttl_sdk_pin_set_now(),(unsigned long)mttl_sdk_worker_max_gap());
  if(size<0||(size_t)size>=sizeof(json)){httpd_response_internal_server_error(c,0);httpd_conn_close(c);return;}send(c,json,size,"application/json");
 }
 static void energy_page(struct httpd_conn *c){

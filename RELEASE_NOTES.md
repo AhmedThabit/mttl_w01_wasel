@@ -1,6 +1,9 @@
-**Wasel 2.0.14-w4-rc2** — based on upstream standalone 2.0.14.
+**Wasel 2.0.14-w4-rc3** — based on upstream standalone 2.0.14.
 
 New in w4:
+- Watchdog fed only by full worker passes (meter, timers, status): a loop that spins without
+  doing the real work now ends in a reset after 30 s instead of a silent freeze.
+  `/api/memory` reports `worker_max_gap_ms`, the longest gap between full passes since boot.
 - Local PIN (4–8 digits) for the strip's write API: switching outlets, saving settings, Wi-Fi
   and firmware upload need header `X-Wasel-Pin` once a PIN is set (`POST /api/pin`, body = new
   PIN, empty = remove). Reading stays open. Five wrong PINs lock the API for 60 s. Holding the main

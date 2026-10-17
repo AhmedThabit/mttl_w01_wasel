@@ -21,6 +21,8 @@ jobs:
         with: { node-version: '22' }
       - name: Host tests (RFC 8439 vectors, frame rules, MQTT engine flow)
         run: sh source/standalone/tests/run.sh
+      - name: Fuzz the parsers of outside data (settings, flash records, remote frames, Wi-Fi form, MQTT)
+        run: SECONDS_PER_TARGET=60 sh source/standalone/fuzz/run.sh
       - name: Toolchain and SDK
         working-directory: source
         run: |
@@ -47,6 +49,8 @@ jobs:
             r=standalone/results/network-ota-test
             cp $r/comMTTL-W01_$V.fwr /tmp/out/wasel-$v-$V.fwr
             python -c "import json;m=json.load(open('$r/manifest.json'));print('$v build',m['build_id'],'static gap',m['static_gap_to_msp_bytes'],'bytes')" | tee -a /tmp/out/summary.txt
+            # RAM floor: the image runs from SRAM; refuse a build that leaves less than 512 bytes.
+            python -c "import json,sys;g=json.load(open('$r/manifest.json'))['static_gap_to_msp_bytes'];sys.exit(0 if g>=512 else print('$v: static gap',g,'< 512 bytes') or 1)"
           done
           (cd /tmp/out && sha256sum *.fwr > SHA256SUMS && cat SHA256SUMS)
       - uses: actions/upload-artifact@v4

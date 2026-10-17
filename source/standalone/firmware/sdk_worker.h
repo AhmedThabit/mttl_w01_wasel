@@ -25,6 +25,8 @@ int mttl_sdk_config_reserve(const uint8_t *,size_t,int keep_password);
 int mttl_sdk_pin_check(const char *given);
 int mttl_sdk_pin_set(const char *pin);
 int mttl_sdk_pin_set_now(void);
+/* Longest gap between two full worker passes since boot (ms): a near-stall shows here. */
+uint32_t mttl_sdk_worker_max_gap(void);
 void mttl_sdk_config_release(int accepted);
 int mttl_sdk_control_request(unsigned channel,unsigned on);
 void mttl_sdk_control_timing(uint32_t out[4]);

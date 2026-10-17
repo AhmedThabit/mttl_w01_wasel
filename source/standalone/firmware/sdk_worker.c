@@ -26,6 +26,8 @@ extern void wdt_disable(void);
 extern void wdt_enable(uint32_t);
 extern void wdt_reset(void);
 static volatile uint32_t watchdog_worker_at,watchdog_http_at,watchdog_relay_at;
+static uint32_t worker_max_gap_ms; /* longest time between two full worker passes since boot */
+uint32_t mttl_sdk_worker_max_gap(void){return worker_max_gap_ms;}
 static volatile uint8_t watchdog_worker_seen,watchdog_http_active;
 static uint8_t watchdog_started,watchdog_expired;
 void mttl_sdk_watchdog_http(int active){watchdog_http_at=(uint32_t)xTaskGetTickCount()*portTICK_RATE_MS;watchdog_http_active=active!=0;}
@@ -316,7 +318,6 @@ static void worker(void *p){
     {unsigned fast_passes=0;
     for(;;){
         int scan_now=0,config_now;
-        watchdog_worker_at=clock_ms(0);watchdog_worker_seen=1;
         taskENTER_CRITICAL();device.control.known_mask=relay_known;device.control.on_mask=relay_on;device.control.fault=relay_fault;taskEXIT_CRITICAL();
         timer_service(clock_ms(0));
         /* Same MQTT socket owner, but bypass slow sensor/storage work while
@@ -332,6 +333,10 @@ static void worker(void *p){
         /* Wasel: a confirmation that never drains must not starve the meter, the
          * timers or the status snapshot: at most ~50 fast passes, then one full pass. */
         fast_passes=0;
+        /* Wasel: the watchdog sees progress only from full passes (meter, timers, status), so a
+         * loop that spins without doing the real work still ends in a reset after 30 s. */
+        {uint32_t now=clock_ms(0);if(watchdog_worker_seen&&(uint32_t)(now-watchdog_worker_at)>worker_max_gap_ms)worker_max_gap_ms=now-watchdog_worker_at;
+         watchdog_worker_at=now;watchdog_worker_seen=1;}
         {int provision=0;taskENTER_CRITICAL();if(provision_requested&&!relay_busy&&!energy_barrier_state&&!occupied&&!config_occupied){provision=1;}taskEXIT_CRITICAL();
          if(provision&&storage_begin()){int reset;
           if(!device.control.fault){device.settings.relay_known=device.control.known_mask;device.settings.relay_on=device.control.on_mask;}
